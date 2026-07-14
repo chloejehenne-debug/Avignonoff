@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <style>
   :root{
     --bg:#EDE8DC;
@@ -1139,6 +1139,10 @@
       const status = document.getElementById("extractStatus");
       const textArea = document.getElementById("extractText");
       if(!pendingPhotoBlob){ return; }
+      if(typeof Tesseract === "undefined"){
+        status.textContent = "L'outil d'extraction n'a pas pu se charger (connexion internet ?). Remplis les champs manuellement.";
+        return;
+      }
       status.textContent = "Analyse de la photo en cours… (peut prendre 10-20 secondes)";
       try{
         const result = await Tesseract.recognize(pendingPhotoBlob, "fra");
