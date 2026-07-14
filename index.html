@@ -395,6 +395,7 @@
 
   const geocodeCache = {};
   let leafletMap = null;
+  let mapRenderToken = 0;
   function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
   async function geocodeAddress(address){
