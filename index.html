@@ -174,10 +174,15 @@
   .card-address{ font-size:12px; color:var(--ink-soft); text-decoration:none; }
   .card-address:hover{ text-decoration:underline; }
   .card-address.unsure{ color:var(--stamp); font-style:italic; }
-  .card-note{
-    display:inline-block; font-family:'IBM Plex Mono'; font-size:10.5px; font-weight:600; letter-spacing:.03em;
-    color:var(--stamp); background:rgba(193,85,61,.1); border:1px solid rgba(193,85,61,.3); border-radius:6px;
-    padding:2px 7px; width:fit-content;
+  .summary-toggle{
+    display:flex; align-items:center; gap:4px; background:none; border:none; cursor:pointer;
+    font-family:'Work Sans'; font-weight:600; font-size:12px; color:var(--primary); padding:2px 0; width:fit-content;
+  }
+  .summary-toggle .chevron{ transition:transform .15s ease; font-size:10px; }
+  .summary-toggle.open .chevron{ transform:rotate(180deg); }
+  .card-summary{
+    font-size:12.5px; line-height:1.5; color:var(--ink-soft); background:var(--bg); border-radius:8px;
+    padding:8px 10px; margin-top:2px;
   }
   .photo-thumb{
     width:100%; max-height:130px; object-fit:cover; border-radius:8px; border:1px solid var(--line); cursor:zoom-in;
@@ -796,9 +801,12 @@
     const votedNames = state.voters.filter(v=>!!votes[v.id]).map(v=>v.name);
     const voteTitle = votedNames.length ? "A voté : " + votedNames.join(", ") : "Personne n'a encore voté";
 
-    const noteHtml = (s.note && !/rel.che/i.test(s.note)) ? `<span class="card-note">${escapeHtml(s.note)}</span>` : "";
     const photoHtml = s.photo_url ? `<img class="photo-thumb" data-id="${s.id}" src="${escapeHtml(s.photo_url)}" alt="Flyer de ${escapeHtml(s.name)}">` : "";
     const durationHtml = s.duration ? `<div class="duration mono">${escapeHtml(s.duration)}</div>` : "";
+    const summaryHtml = s.summary
+      ? `<button class="summary-toggle" data-id="${s.id}">Résumé <span class="chevron">▾</span></button>
+         <div class="card-summary hidden" id="summary-${s.id}">${escapeHtml(s.summary)}</div>`
+      : "";
 
     const reserveHtml = s.link
       ? `<a class="reserve-link" href="${escapeHtml(s.link)}" target="_blank" rel="noopener">Réserver ↗</a>`
@@ -827,8 +835,8 @@
         </div>
         <div class="card-theatre">${escapeHtml(s.theatre)}</div>
         ${addressLinkHtml(s)}
-        ${noteHtml}
         ${photoHtml}
+        ${summaryHtml}
         <div class="card-bottom">
           <button class="vote-counter ${iVoted?'voted':''}" data-id="${s.id}" title="${escapeHtml(voteTitle)}">
             <span class="heart">♥</span><span>${count}</span>
@@ -879,6 +887,17 @@
 
   function bindCardEvents(){
     const wrap = document.getElementById("cards");
+
+    wrap.querySelectorAll(".summary-toggle").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const id = btn.dataset.id;
+        const panel = document.getElementById("summary-"+id);
+        if(!panel) return;
+        const isOpen = !panel.classList.contains("hidden");
+        panel.classList.toggle("hidden", isOpen);
+        btn.classList.toggle("open", !isOpen);
+      });
+    });
 
     wrap.querySelectorAll(".vote-counter").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
@@ -1053,7 +1072,6 @@
             <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
             <img id="photoPreview" class="photo-preview hidden">
             <div class="sub" id="extractStatus" style="margin-top:8px;"></div>
-            <textarea id="extractText" class="hidden" readonly rows="4" style="width:100%; margin-top:8px; font-size:12px; color:var(--ink-soft);"></textarea>
           </div>
 
           <div class="field">
@@ -1074,7 +1092,7 @@
           <div class="field"><label>Adresse</label><input type="text" id="f_address" value="${show?escapeHtml(show.address||''):''}"></div>
           <div class="sub" id="theatreHint" style="margin-top:-8px; margin-bottom:12px;"></div>
           <div class="field"><label>Lien de réservation</label><input type="url" id="f_link" placeholder="https://…" value="${show?escapeHtml(show.link||''):''}"></div>
-          <div class="field"><label>Note (optionnel — ex. "complet")</label><input type="text" id="f_note" value="${show?escapeHtml(show.note||''):''}"></div>
+          <div class="field"><label>Résumé (optionnel)</label><textarea id="f_summary" rows="3" placeholder="Quelques phrases sur le spectacle…">${show?escapeHtml(show.summary||''):''}</textarea></div>
 
           <div class="modal-actions">
             <button class="btn" id="showCancel">Annuler</button>
@@ -1127,7 +1145,7 @@
         const preview = document.getElementById("photoPreview");
         preview.src = URL.createObjectURL(blob);
         preview.classList.remove("hidden");
-        document.getElementById("extractText").classList.add("hidden");
+        document.getElementById("extractStatus").textContent = "";
         await runExtraction();
       }catch(err){
         console.error(err);
@@ -1137,7 +1155,6 @@
 
     async function runExtraction(){
       const status = document.getElementById("extractStatus");
-      const textArea = document.getElementById("extractText");
       if(!pendingPhotoBlob){ return; }
       if(typeof Tesseract === "undefined"){
         status.textContent = "L'outil d'extraction n'a pas pu se charger (connexion internet ?). Remplis les champs manuellement.";
@@ -1147,8 +1164,6 @@
       try{
         const result = await Tesseract.recognize(pendingPhotoBlob, "fra");
         const text = result.data.text || "";
-        textArea.value = text.trim();
-        textArea.classList.remove("hidden");
 
         let found = [];
 
@@ -1200,7 +1215,7 @@
 
         status.textContent = found.length
           ? "Détecté automatiquement : " + found.join(", ") + ". Vérifie ces champs (l'OCR n'est pas parfait) et complète le reste."
-          : "Rien de reconnu avec certitude. Le texte brut est affiché ci-dessous, copie ce dont tu as besoin.";
+          : "Rien de reconnu avec certitude sur cette photo, remplis les champs manuellement.";
       }catch(err){
         console.error(err);
         status.textContent = "Échec de l'analyse — remplis les champs manuellement.";
@@ -1227,7 +1242,7 @@
         theatre: theatreName,
         address: addressTyped,
         link: document.getElementById("f_link").value.trim(),
-        note: document.getElementById("f_note").value.trim(),
+        summary: document.getElementById("f_summary").value.trim(),
         address_unsure: false,
         lat, lng
       };
