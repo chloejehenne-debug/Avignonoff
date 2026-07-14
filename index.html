@@ -447,7 +447,11 @@
   }
   async function loadVotesByKey(){
     const { data, error } = await supabase.from("show_votes").select("*");
-    if(error){ console.error(error); return {}; }
+    if(error){
+      console.error(error);
+      alert("Impossible de charger les votes (table 'show_votes' introuvable ?) : " + error.message);
+      return {};
+    }
     const map = {};
     (data||[]).forEach(row => { map[row.key] = row.votes || {}; });
     return map;
@@ -667,34 +671,40 @@
   }
 
   function renderMapView(list){
+    const myToken = ++mapRenderToken;
     const wrap = document.getElementById("cards");
+
+    if(leafletMap){ try{ leafletMap.remove(); }catch(e){} leafletMap = null; }
     wrap.className = "";
     wrap.innerHTML = `<div id="mapView" class="map-view"></div><div id="mapUnsure"></div>`;
 
-    if(leafletMap){ leafletMap.remove(); leafletMap = null; }
-
-    leafletMap = L.map("mapView").setView([43.9493, 4.8055], 15);
+    const map = L.map("mapView").setView([43.9493, 4.8055], 15);
+    leafletMap = map;
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap contributors",
       maxZoom: 19
-    }).addTo(leafletMap);
+    }).addTo(map);
+    setTimeout(()=>{ if(mapRenderToken===myToken) map.invalidateSize(); }, 60);
 
     (async ()=>{
       const bounds = [];
       const unresolved = [];
       for(const s of list){
+        if(mapRenderToken !== myToken) return; // a newer render started meanwhile, abandon this one
         if(!s.address || /confirmer/i.test(s.address)){ unresolved.push(s); continue; }
         let coords = (s.lat!=null && s.lng!=null) ? { lat:s.lat, lng:s.lng } : await geocodeAddress(s.address);
+        if(mapRenderToken !== myToken) return;
         if(!coords){ unresolved.push(s); continue; }
         if(s.lat==null || s.lng==null){
           s.lat = coords.lat; s.lng = coords.lng;
           updateShow(s.id, { lat: coords.lat, lng: coords.lng });
         }
-        const marker = L.marker([coords.lat, coords.lng]).addTo(leafletMap);
+        const marker = L.marker([coords.lat, coords.lng]).addTo(map);
         marker.bindPopup(`<strong>${escapeHtml(s.name)}</strong><br>${escapeHtml(s.theatre||"")}<br>${escapeHtml(s.time||"")} — ${escapeHtml(dayBadgeHtml(s))}`);
         bounds.push([coords.lat, coords.lng]);
       }
-      if(bounds.length) leafletMap.fitBounds(bounds, { padding:[30,30] });
+      if(mapRenderToken !== myToken) return;
+      if(bounds.length) map.fitBounds(bounds, { padding:[30,30] });
       const unsureDiv = document.getElementById("mapUnsure");
       if(unsureDiv && unresolved.length){
         unsureDiv.innerHTML = `<div class="map-unsure-note">Adresse non localisée sur la carte pour : ${unresolved.map(s=>escapeHtml(s.name)).join(", ")}</div>`;
