@@ -624,8 +624,9 @@
   function renderDayTabs(){
     const nav = document.getElementById("dayTabs");
     const refreshBtn = document.getElementById("refreshBtn").outerHTML;
+    const uniqueShowCount = new Set(state.shows.map(s => showKey(s.name))).size;
     const allTab = `<button class="daytab ${state.currentDay==='all'?'active':''}" data-day="all">
-      Tous les jours <span class="count">${state.shows.length}</span>
+      Tous les jours <span class="count">${uniqueShowCount}</span>
     </button>`;
     nav.innerHTML = allTab + DAYS.map(d=>{
       const count = state.shows.filter(s=>s.day===d.key).length;
