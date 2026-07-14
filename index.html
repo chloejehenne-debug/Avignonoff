@@ -398,19 +398,32 @@
   let mapRenderToken = 0;
   function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
-  async function geocodeAddress(address){
+  async function geocodeAddress(address, attempt){
+    attempt = attempt || 1;
     if(geocodeCache[address]) return geocodeCache[address];
     try{
-      const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(address);
+      const query = /france/i.test(address) ? address : address + ", France";
+      const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(query);
       const res = await fetch(url);
+      if(res.status === 429 && attempt < 3){
+        await sleep(1500 * attempt);
+        return geocodeAddress(address, attempt + 1);
+      }
       const data = await res.json();
+      await sleep(400);
       if(data && data[0]){
         const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         geocodeCache[address] = coords;
-        await sleep(300);
         return coords;
       }
-    }catch(e){ console.warn("Géocodage échoué pour", address, e); }
+      if(attempt < 2){
+        await sleep(1000);
+        return geocodeAddress(address, attempt + 1);
+      }
+    }catch(e){
+      console.warn("Géocodage échoué pour", address, e);
+      if(attempt < 2){ await sleep(1000); return geocodeAddress(address, attempt + 1); }
+    }
     return null;
   }
 
