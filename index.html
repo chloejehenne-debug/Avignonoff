@@ -414,6 +414,16 @@
     return null;
   }
 
+  function cacheCoordsForSameName(show, lat, lng){
+    const key = showKey(show.name);
+    state.shows
+      .filter(s => showKey(s.name) === key && (s.lat==null || s.lng==null))
+      .forEach(s => {
+        s.lat = lat; s.lng = lng;
+        updateShowSilent(s.id, { lat, lng });
+      });
+  }
+
   function isConfigured(){
     return SUPABASE_URL.indexOf("supabase.co") !== -1 && SUPABASE_ANON_KEY.length > 20;
   }
@@ -467,6 +477,10 @@
   async function updateShow(id, fields){
     const { error } = await supabase.from("shows").update(fields).eq("id", id);
     if(error){ console.error(error); alert("Impossible d'enregistrer : " + error.message); }
+  }
+  async function updateShowSilent(id, fields){
+    const { error } = await supabase.from("shows").update(fields).eq("id", id);
+    if(error){ console.warn("Sauvegarde silencieuse échouée pour", id, error.message); }
   }
   async function deleteShowRow(id){
     const { error } = await supabase.from("shows").delete().eq("id", id);
@@ -696,8 +710,7 @@
         if(mapRenderToken !== myToken) return;
         if(!coords){ unresolved.push(s); continue; }
         if(s.lat==null || s.lng==null){
-          s.lat = coords.lat; s.lng = coords.lng;
-          updateShow(s.id, { lat: coords.lat, lng: coords.lng });
+          cacheCoordsForSameName(s, coords.lat, coords.lng);
         }
         const marker = L.marker([coords.lat, coords.lng]).addTo(map);
         marker.bindPopup(`<strong>${escapeHtml(s.name)}</strong><br>${escapeHtml(s.theatre||"")}<br>${escapeHtml(s.time||"")} — ${escapeHtml(dayBadgeHtml(s))}`);
