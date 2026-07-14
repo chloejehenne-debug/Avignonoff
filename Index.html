@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avignon Off 2026 — Notre programme</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#EDE8DC;
+    --paper:#FBF8F1;
+    --ink:#241B2F;
+    --ink-soft:#5B5266;
+    --primary:#3E4095;
+    --primary-dark:#2B2C6B;
+    --accent:#F2A93B;
+    --stamp:#C1553D;
+    --line:rgba(36,27,47,.14);
+    --line-strong:rgba(36,27,47,.28);
+    --radius:14px;
+    --shadow:0 2px 4px rgba(36,27,47,.06), 0 10px 24px -12px rgba(36,27,47,.22);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    background-image:radial-gradient(circle at 20% 0%, rgba(62,64,149,.06), transparent 45%),
+                      radial-gradient(circle at 90% 10%, rgba(242,169,59,.10), transparent 40%);
+    color:var(--ink);
+    font-family:'Work Sans', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{ font-family:'Fraunces', serif; margin:0; }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  a{ color:inherit; }
+
+  #app{ max-width:1180px; margin:0 auto; padding:20px 20px 80px; }
+
+  .topbar{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:16px; flex-wrap:wrap; padding-bottom:18px; border-bottom:2px solid var(--line-strong);
+    margin-bottom:18px;
+  }
+  .eyebrow{
+    display:inline-block; font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:.14em;
+    color:var(--primary); font-weight:600; margin-bottom:6px;
+  }
+  .brand h1{ font-size:clamp(28px,4vw,40px); font-weight:700; color:var(--ink); line-height:1.05; }
+  .whoami{
+    display:flex; align-items:center; gap:10px; background:var(--paper); border:1px solid var(--line);
+    padding:10px 14px; border-radius:999px; box-shadow:var(--shadow);
+  }
+  .whoami label{ font-size:12px; color:var(--ink-soft); font-weight:600; }
+  select, input[type=text], input[type=search], input[type=url], input[type=number], input[type=time], textarea{
+    font-family:'Work Sans', sans-serif; font-size:14px; color:var(--ink);
+    background:#fff; border:1px solid var(--line-strong); border-radius:9px;
+    padding:8px 10px; outline:none;
+  }
+  select:focus, input:focus, textarea:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(62,64,149,.15); }
+  .linklike{
+    background:none; border:none; color:var(--primary); font-weight:600; font-size:12.5px;
+    text-decoration:underline; cursor:pointer; padding:2px 4px;
+  }
+
+  .daytabs{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .daytab{
+    font-family:'IBM Plex Mono'; font-size:13px; font-weight:600; letter-spacing:.03em;
+    background:var(--paper); border:1px solid var(--line-strong); color:var(--ink-soft);
+    padding:9px 16px; border-radius:999px; cursor:pointer; display:flex; align-items:center; gap:8px;
+  }
+  .daytab .count{ background:var(--line); border-radius:999px; padding:1px 7px; font-size:11px; }
+  .daytab.active{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  .daytab.active .count{ background:rgba(255,255,255,.25); }
+  .refresh-btn{
+    margin-left:auto; background:var(--paper); border:1px solid var(--line-strong); border-radius:999px;
+    padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; color:var(--ink-soft);
+  }
+  .sync-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; background:#8FBF6B; }
+  .sync-dot.off{ background:var(--stamp); }
+
+  .toolbar{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:20px;
+  }
+  .toolbar input[type=search]{ flex:1; min-width:180px; }
+  .minvotes{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); font-weight:600; }
+  .minvotes input{ width:56px; }
+  .btn{
+    font-family:'Work Sans'; font-weight:600; font-size:13.5px; border-radius:9px; border:1px solid var(--line-strong);
+    background:#fff; color:var(--ink); padding:9px 14px; cursor:pointer; white-space:nowrap;
+  }
+  .btn.primary{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  .btn.primary:hover{ background:var(--primary-dark); }
+  .btn.ghost{ background:transparent; border-color:transparent; }
+  .btn:hover{ filter:brightness(0.98); }
+
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(310px,1fr)); gap:18px; }
+  .empty{
+    grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--ink-soft);
+    background:var(--paper); border:1px dashed var(--line-strong); border-radius:var(--radius);
+  }
+
+  .card{
+    display:flex; background:var(--paper); border-radius:var(--radius); box-shadow:var(--shadow);
+    overflow:hidden; position:relative; border:1px solid var(--line);
+  }
+  .stub{
+    width:78px; flex-shrink:0; background:var(--primary); color:#fff;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    position:relative; padding:10px 4px; text-align:center;
+  }
+  .stub::before{
+    content:""; position:absolute; left:-6px; top:0; bottom:0; width:12px;
+    background-image:radial-gradient(circle at 6px 0, transparent 6px, var(--paper) 6.5px);
+    background-size:12px 18px; background-repeat:repeat-y;
+  }
+  .stub::after{
+    content:""; position:absolute; right:0; top:8px; bottom:8px; border-left:2px dashed rgba(255,255,255,.45);
+  }
+  .stub .time{ font-family:'IBM Plex Mono'; font-weight:600; font-size:17px; line-height:1.1; }
+  .stub .day{ font-family:'IBM Plex Mono'; font-size:10px; opacity:.8; margin-top:4px; letter-spacing:.06em; }
+
+  .card-body{ flex:1; padding:14px 16px 12px; min-width:0; display:flex; flex-direction:column; gap:8px; }
+  .card-top{ display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+  .card-title h3{ font-size:17px; font-weight:600; line-height:1.2; }
+  .card-company{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .card-menu{ position:relative; flex-shrink:0; }
+  .icon-btn{
+    background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:16px; padding:2px 5px; border-radius:6px;
+  }
+  .icon-btn:hover{ background:var(--line); color:var(--ink); }
+  .dropdown{
+    position:absolute; right:0; top:26px; background:#fff; border:1px solid var(--line-strong); border-radius:10px;
+    box-shadow:var(--shadow); z-index:20; min-width:170px; overflow:hidden; display:none;
+  }
+  .dropdown.open{ display:block; }
+  .dropdown button{
+    display:block; width:100%; text-align:left; background:none; border:none; padding:9px 12px; font-size:13px;
+    cursor:pointer; color:var(--ink);
+  }
+  .dropdown button:hover{ background:var(--bg); }
+  .dropdown .divider{ height:1px; background:var(--line); margin:2px 0; }
+
+  .card-theatre{ font-size:13px; color:var(--ink); }
+  .card-address{ font-size:12px; color:var(--ink-soft); }
+  .card-address.unsure{ color:var(--stamp); font-style:italic; }
+  .card-note{
+    display:inline-block; font-family:'IBM Plex Mono'; font-size:10.5px; font-weight:600; letter-spacing:.03em;
+    color:var(--stamp); background:rgba(193,85,61,.1); border:1px solid rgba(193,85,61,.3); border-radius:6px;
+    padding:2px 7px; width:fit-content;
+  }
+  .photo-thumb{
+    width:100%; max-height:130px; object-fit:cover; border-radius:8px; border:1px solid var(--line); cursor:zoom-in;
+  }
+
+  .card-bottom{
+    margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:10px;
+    border-top:1px dashed var(--line-strong);
+  }
+  .votes{ display:flex; gap:4px; flex-wrap:wrap; }
+  .vote-pill{
+    font-family:'IBM Plex Mono'; font-size:10.5px; font-weight:600; width:26px; height:26px; border-radius:50%;
+    border:1.5px dashed var(--line-strong); background:#fff; color:var(--ink-soft); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:transform .12s ease;
+  }
+  .vote-pill.voted{
+    background:var(--stamp); border-color:var(--stamp); color:#fff; border-style:solid;
+    transform:rotate(-6deg); animation:stampIn .18s ease-out;
+  }
+  @keyframes stampIn{ from{ transform:scale(1.5) rotate(-14deg); opacity:0;} to{ transform:scale(1) rotate(-6deg); opacity:1;} }
+  .vote-total{ font-family:'IBM Plex Mono'; font-size:11px; color:var(--ink-soft); margin-left:2px; }
+
+  .reserve-link{
+    font-family:'Work Sans'; font-weight:600; font-size:12.5px; text-decoration:none; color:#fff;
+    background:var(--accent); padding:7px 12px; border-radius:8px; white-space:nowrap;
+  }
+  .reserve-missing{
+    font-size:11.5px; color:var(--ink-soft); font-style:italic; cursor:pointer; text-decoration:underline;
+  }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(36,27,47,.45); display:flex; align-items:flex-start; justify-content:center;
+    padding:30px 16px; overflow-y:auto; z-index:100;
+  }
+  .modal{
+    background:var(--paper); border-radius:16px; max-width:560px; width:100%; box-shadow:var(--shadow); padding:22px 24px 26px;
+  }
+  .modal h2{ font-size:22px; margin-bottom:4px; }
+  .modal .sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:16px; }
+  .tabs{ display:flex; gap:6px; margin-bottom:16px; }
+  .tab-btn{
+    flex:1; font-weight:600; font-size:13px; padding:9px; border-radius:9px; border:1px solid var(--line-strong);
+    background:#fff; cursor:pointer; color:var(--ink-soft);
+  }
+  .tab-btn.active{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin-bottom:4px; }
+  .field input, .field select, .field textarea{ width:100%; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+  .daychecks{ display:flex; gap:14px; flex-wrap:wrap; }
+  .daychecks label{ display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:var(--ink); }
+  .photo-drop{
+    border:2px dashed var(--line-strong); border-radius:12px; padding:18px; text-align:center; color:var(--ink-soft);
+    font-size:13px; margin-bottom:14px; cursor:pointer; background:#fff;
+  }
+  .photo-preview{ max-width:100%; max-height:220px; border-radius:10px; margin-top:10px; display:block; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+  .voter-edit-row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+  .voter-edit-row input{ flex:1; }
+
+  .lightbox{
+    position:fixed; inset:0; background:rgba(20,15,25,.85); display:flex; align-items:center; justify-content:center;
+    z-index:200; padding:24px; cursor:zoom-out;
+  }
+  .lightbox img{ max-width:100%; max-height:100%; border-radius:10px; }
+
+  .hidden{ display:none !important; }
+  .loading-state{ text-align:center; padding:60px 0; color:var(--ink-soft); font-size:14px; }
+
+  .setup-banner{
+    max-width:640px; margin:60px auto; background:var(--paper); border:1px solid var(--line-strong);
+    border-radius:16px; padding:26px 28px; box-shadow:var(--shadow); font-size:14px; line-height:1.6;
+  }
+  .setup-banner h2{ font-size:22px; margin-bottom:10px; }
+  .setup-banner code{
+    background:#fff; border:1px solid var(--line); padding:2px 6px; border-radius:6px; font-family:'IBM Plex Mono';
+    font-size:12.5px;
+  }
+
+  @media (max-width:560px){
+    .whoami{ width:100%; justify-content:space-between; }
+    .toolbar{ width:100%; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="eyebrow">FESTIVAL OFF D'AVIGNON · 60ᵉ ÉDITION</span>
+      <h1>Notre programme</h1>
+    </div>
+    <div class="whoami">
+      <label>Qui es-tu ?</label>
+      <select id="voterSelect"></select>
+      <button class="linklike" id="editVotersBtn">noms</button>
+    </div>
+  </header>
+
+  <nav class="daytabs" id="dayTabs">
+    <button class="refresh-btn" id="refreshBtn" style="display:none;"><span class="sync-dot" id="syncDot"></span>Actualiser</button>
+  </nav>
+
+  <div class="toolbar">
+    <input type="search" id="searchInput" placeholder="Chercher un spectacle ou une compagnie…">
+    <select id="theatreFilter"></select>
+    <select id="sortSelect">
+      <option value="time">Trier par heure</option>
+      <option value="votes">Trier par nombre de votes</option>
+      <option value="name">Trier par nom</option>
+    </select>
+    <label class="minvotes">≥ votes <input type="number" id="minVotes" min="0" max="5" value="0"></label>
+    <button class="btn primary" id="addBtn">+ Ajouter un spectacle</button>
+  </div>
+
+  <main id="cards" class="cards"><div class="loading-state">Chargement du programme…</div></main>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // CONFIGURATION SUPABASE — à remplir une seule fois
+  // ============================================================
+  const SUPABASE_URL = "COLLE_TON_URL_SUPABASE_ICI";       // ex: https://abcdefgh.supabase.co
+  const SUPABASE_ANON_KEY = "COLLE_TA_CLE_ANON_ICI";       // Project Settings > API > anon public
+  const PHOTO_BUCKET = "flyers";
+  // ============================================================
+
+  const DAYS = [
+    {key:"17", label:"Ven. 17 juillet"},
+    {key:"18", label:"Sam. 18 juillet"},
+    {key:"19", label:"Dim. 19 juillet"}
+  ];
+
+  let supabase = null;
+  let state = {
+    shows: [],
+    voters: ["Perso 1","Perso 2","Perso 3","Perso 4","Perso 5"],
+    currentDay: "17",
+    currentVoter: 0
+  };
+
+  function isConfigured(){
+    return SUPABASE_URL.indexOf("supabase.co") !== -1 && SUPABASE_ANON_KEY.length > 20;
+  }
+
+  function uid(){ return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(str){
+    return String(str||"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+  }
+  function voteCount(show){ return Object.values(show.votes||{}).filter(Boolean).length; }
+
+  // ---------- setup banner if not configured ----------
+  function renderSetupBanner(){
+    document.getElementById("app").innerHTML = `
+      <div class="setup-banner">
+        <h2>⚙️ Configuration Supabase requise</h2>
+        <p>Cette page a besoin de ton URL et de ta clé publique <strong>anon</strong> Supabase pour fonctionner.
+        Ouvre le fichier HTML, repère les deux constantes en haut du script :</p>
+        <p><code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code></p>
+        <p>remplace-les par les valeurs de ton projet (Project Settings → API), enregistre, et recharge la page.
+        Tu n'auras besoin de le faire qu'une seule fois.</p>
+      </div>`;
+  }
+
+  // ---------- data access ----------
+  async function loadShows(){
+    const { data, error } = await supabase.from("shows").select("*");
+    if(error){ console.error(error); alert("Impossible de charger les spectacles depuis Supabase : " + error.message); return []; }
+    return (data||[]).map(row => Object.assign({}, row, { votes: row.votes || {} }));
+  }
+  async function insertShow(show){
+    const { error } = await supabase.from("shows").insert([show]);
+    if(error){ console.error(error); alert("Impossible d'ajouter ce spectacle : " + error.message); }
+  }
+  async function updateShow(id, fields){
+    const { error } = await supabase.from("shows").update(fields).eq("id", id);
+    if(error){ console.error(error); alert("Impossible d'enregistrer : " + error.message); }
+  }
+  async function deleteShowRow(id){
+    const { error } = await supabase.from("shows").delete().eq("id", id);
+    if(error){ console.error(error); alert("Impossible de supprimer : " + error.message); }
+  }
+  async function loadVoters(){
+    const { data, error } = await supabase.from("app_config").select("value").eq("key","voters").single();
+    if(error){ console.error(error); return ["Perso 1","Perso 2","Perso 3","Perso 4","Perso 5"]; }
+    return data.value;
+  }
+  async function saveVoters(){
+    const { error } = await supabase.from("app_config").update({ value: state.voters }).eq("key","voters");
+    if(error){ console.error(error); alert("Impossible d'enregistrer les noms : " + error.message); }
+  }
+  async function uploadPhoto(id, blob){
+    const path = id + ".jpg";
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, { contentType:"image/jpeg", upsert:true });
+    if(error){ console.error(error); alert("Impossible d'envoyer la photo : " + error.message); return null; }
+    const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  }
+  async function deletePhoto(id){
+    try{ await supabase.storage.from(PHOTO_BUCKET).remove([id + ".jpg"]); }catch(e){ console.warn(e); }
+  }
+
+  // ---------- init ----------
+  async function init(){
+    if(!isConfigured()){ renderSetupBanner(); return; }
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const [shows, voters] = await Promise.all([loadShows(), loadVoters()]);
+    state.shows = shows;
+    state.voters = voters;
+
+    renderVoterSelect();
+    renderDayTabs();
+    renderTheatreFilter();
+    renderCards();
+    bindStaticEvents();
+    subscribeRealtime();
+  }
+
+  function subscribeRealtime(){
+    try{
+      supabase.channel("shows-changes")
+        .on("postgres_changes", { event:"*", schema:"public", table:"shows" }, async () => {
+          state.shows = await loadShows();
+          renderDayTabs(); renderTheatreFilter(); renderCards();
+        })
+        .subscribe((status)=>{
+          const dot = document.getElementById("syncDot");
+          if(dot) dot.classList.toggle("off", status !== "SUBSCRIBED");
+        });
+      supabase.channel("config-changes")
+        .on("postgres_changes", { event:"*", schema:"public", table:"app_config" }, async () => {
+          state.voters = await loadVoters();
+          renderVoterSelect(); renderCards();
+        })
+        .subscribe();
+      document.getElementById("refreshBtn").style.display = "none";
+    }catch(e){
+      console.warn("Realtime indisponible, utilise le bouton Actualiser.", e);
+      document.getElementById("refreshBtn").style.display = "inline-flex";
+    }
+  }
+
+  async function refreshAll(){
+    state.shows = await loadShows();
+    state.voters = await loadVoters();
+    renderVoterSelect(); renderDayTabs(); renderTheatreFilter(); renderCards();
+  }
+
+  // ---------- rendering ----------
+  function renderDayTabs(){
+    const nav = document.getElementById("dayTabs");
+    const refreshBtn = document.getElementById("refreshBtn").outerHTML;
+    nav.innerHTML = DAYS.map(d=>{
+      const count = state.shows.filter(s=>s.day===d.key).length;
+      return `<button class="daytab ${d.key===state.currentDay?'active':''}" data-day="${d.key}">
+        ${d.label} <span class="count">${count}</span>
+      </button>`;
+    }).join("") + refreshBtn;
+    nav.querySelectorAll(".daytab").forEach(btn=>{
+      btn.addEventListener("click", ()=>{ state.currentDay = btn.dataset.day; renderDayTabs(); renderCards(); });
+    });
+    document.getElementById("refreshBtn").addEventListener("click", refreshAll);
+  }
+
+  function renderVoterSelect(){
+    const sel = document.getElementById("voterSelect");
+    sel.innerHTML = state.voters.map((v,i)=>`<option value="${i}">${escapeHtml(v)}</option>`).join("");
+    sel.value = state.currentVoter;
+  }
+
+  function renderTheatreFilter(){
+    const sel = document.getElementById("theatreFilter");
+    const theatres = Array.from(new Set(state.shows.map(s=>s.theatre).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    sel.innerHTML = `<option value="">Tous les théâtres</option>` + theatres.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+  }
+
+  function getFiltered(){
+    const q = document.getElementById("searchInput").value.trim().toLowerCase();
+    const theatre = document.getElementById("theatreFilter").value;
+    const sortBy = document.getElementById("sortSelect").value;
+    const minVotes = parseInt(document.getElementById("minVotes").value || "0", 10);
+
+    let list = state.shows.filter(s => s.day === state.currentDay);
+    if(q) list = list.filter(s => (s.name+" "+(s.company||"")).toLowerCase().includes(q));
+    if(theatre) list = list.filter(s => s.theatre === theatre);
+    list = list.filter(s => voteCount(s) >= minVotes);
+
+    list.sort((a,b)=>{
+      if(sortBy==="votes") return voteCount(b) - voteCount(a);
+      if(sortBy==="name") return a.name.localeCompare(b.name);
+      return (a.time||"").localeCompare(b.time||"");
+    });
+    return list;
+  }
+
+  function renderCards(){
+    const wrap = document.getElementById("cards");
+    const list = getFiltered();
+    if(list.length===0){
+      wrap.innerHTML = `<div class="empty">Aucun spectacle ne correspond à ces filtres pour ce jour.<br>Essaie d'élargir la recherche ou d'ajouter un spectacle.</div>`;
+      return;
+    }
+    wrap.innerHTML = list.map(cardHtml).join("");
+    bindCardEvents();
+  }
+
+  function cardHtml(s){
+    const dayLabel = DAYS.find(d=>d.key===s.day).label.replace("Ven. ","V ").replace("Sam. ","S ").replace("Dim. ","D ");
+    const votes = s.votes || {};
+    const pills = state.voters.map((v,i)=>{
+      const voted = !!votes[i];
+      return `<button class="vote-pill ${voted?'voted':''}" data-vote-idx="${i}" data-id="${s.id}" title="${escapeHtml(v)}">${escapeHtml(v).slice(0,2).toUpperCase()}</button>`;
+    }).join("");
+    const count = voteCount(s);
+
+    const addressClass = s.address_unsure ? "card-address unsure" : "card-address";
+    const noteHtml = s.note ? `<span class="card-note">${escapeHtml(s.note)}</span>` : "";
+    const photoHtml = s.photo_url ? `<img class="photo-thumb" data-id="${s.id}" src="${escapeHtml(s.photo_url)}" alt="Flyer de ${escapeHtml(s.name)}">` : "";
+
+    const reserveHtml = s.link
+      ? `<a class="reserve-link" href="${escapeHtml(s.link)}" target="_blank" rel="noopener">Réserver ↗</a>`
+      : `<span class="reserve-missing" data-edit-id="${s.id}">+ ajouter un lien</span>`;
+
+    return `
+    <article class="card" data-id="${s.id}">
+      <div class="stub">
+        <div class="time mono">${escapeHtml(s.time||"—")}</div>
+        <div class="day">${escapeHtml(dayLabel)}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-top">
+          <div class="card-title">
+            <h3>${escapeHtml(s.name)}</h3>
+            ${s.company ? `<div class="card-company">${escapeHtml(s.company)}</div>` : ""}
+          </div>
+          <div class="card-menu">
+            <button class="icon-btn menu-toggle" data-id="${s.id}">⋯</button>
+            <div class="dropdown" data-menu-for="${s.id}">
+              <button data-action="edit" data-id="${s.id}">✏️ Modifier</button>
+              <div class="divider"></div>
+              <button data-action="delete" data-id="${s.id}">🗑 Supprimer</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-theatre">${escapeHtml(s.theatre)}</div>
+        <div class="${addressClass}">${escapeHtml(s.address||"")}</div>
+        ${noteHtml}
+        ${photoHtml}
+        <div class="card-bottom">
+          <div class="votes">
+            ${pills}
+            <span class="vote-total">${count}/5</span>
+          </div>
+          ${reserveHtml}
+        </div>
+      </div>
+    </article>`;
+  }
+
+  // ---------- events ----------
+  function bindStaticEvents(){
+    document.getElementById("voterSelect").addEventListener("change", e=>{ state.currentVoter = parseInt(e.target.value,10); });
+    document.getElementById("editVotersBtn").addEventListener("click", openVoterModal);
+    document.getElementById("searchInput").addEventListener("input", renderCards);
+    document.getElementById("theatreFilter").addEventListener("change", renderCards);
+    document.getElementById("sortSelect").addEventListener("change", renderCards);
+    document.getElementById("minVotes").addEventListener("input", renderCards);
+    document.getElementById("addBtn").addEventListener("click", ()=>openShowModal(null));
+    document.addEventListener("click", (e)=>{
+      if(!e.target.closest(".card-menu")){
+        document.querySelectorAll(".dropdown.open").forEach(d=>d.classList.remove("open"));
+      }
+    });
+  }
+
+  function bindCardEvents(){
+    const wrap = document.getElementById("cards");
+
+    wrap.querySelectorAll(".vote-pill").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const id = btn.dataset.id;
+        const idx = btn.dataset.voteIdx;
+        const show = state.shows.find(s=>s.id===id);
+        if(!show) return;
+        show.votes = show.votes || {};
+        show.votes[idx] = !show.votes[idx];
+        renderCards();
+        await updateShow(id, { votes: show.votes });
+      });
+    });
+
+    wrap.querySelectorAll(".menu-toggle").forEach(btn=>{
+      btn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        document.querySelectorAll(".dropdown.open").forEach(d=>{ if(d.dataset.menuFor!==id) d.classList.remove("open"); });
+        const dd = wrap.querySelector(`.dropdown[data-menu-for="${id}"]`);
+        dd.classList.toggle("open");
+      });
+    });
+
+    wrap.querySelectorAll("[data-action]").forEach(btn=>{
+      btn.addEventListener("click", async (e)=>{
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        document.querySelectorAll(".dropdown.open").forEach(d=>d.classList.remove("open"));
+        if(action==="edit") openShowModal(id);
+        if(action==="delete") await deleteShow(id);
+      });
+    });
+
+    wrap.querySelectorAll(".reserve-missing").forEach(el=>{
+      el.addEventListener("click", ()=> openShowModal(el.dataset.editId));
+    });
+
+    wrap.querySelectorAll(".photo-thumb").forEach(img=>{
+      img.addEventListener("click", ()=> openLightbox(img.src));
+    });
+  }
+
+  async function deleteShow(id){
+    const show = state.shows.find(s=>s.id===id);
+    if(!show) return;
+    if(!confirm(`Supprimer "${show.name}" (${DAYS.find(d=>d.key===show.day).label}) ?`)) return;
+    await deleteShowRow(id);
+    if(show.photo_url) await deletePhoto(id);
+    state.shows = state.shows.filter(s=>s.id!==id);
+    renderDayTabs();
+    renderTheatreFilter();
+    renderCards();
+  }
+
+  function openLightbox(src){
+    const div = document.createElement("div");
+    div.className = "lightbox";
+    div.innerHTML = `<img src="${src}">`;
+    div.addEventListener("click", ()=>div.remove());
+    document.body.appendChild(div);
+  }
+
+  // ---------- voter name modal ----------
+  function openVoterModal(){
+    const root = document.getElementById("modalRoot");
+    root.innerHTML = `
+      <div class="overlay" id="voterOverlay">
+        <div class="modal">
+          <h2>Les 5 votants</h2>
+          <div class="sub">Ces noms apparaissent en initiales sur chaque spectacle.</div>
+          <div id="voterRows"></div>
+          <div class="modal-actions">
+            <button class="btn" id="voterCancel">Annuler</button>
+            <button class="btn primary" id="voterSave">Enregistrer</button>
+          </div>
+        </div>
+      </div>`;
+    const rows = document.getElementById("voterRows");
+    rows.innerHTML = state.voters.map((v,i)=>`
+      <div class="voter-edit-row">
+        <input type="text" data-idx="${i}" value="${escapeHtml(v)}" maxlength="20">
+      </div>`).join("");
+    document.getElementById("voterCancel").addEventListener("click", closeModal);
+    document.getElementById("voterSave").addEventListener("click", async ()=>{
+      const inputs = rows.querySelectorAll("input");
+      state.voters = Array.from(inputs).map(i=> i.value.trim() || "Perso");
+      await saveVoters();
+      renderVoterSelect();
+      renderCards();
+      closeModal();
+    });
+    document.getElementById("voterOverlay").addEventListener("click", (e)=>{ if(e.target.id==="voterOverlay") closeModal(); });
+  }
+
+  // ---------- add/edit show modal ----------
+  function openShowModal(id){
+    const show = id ? state.shows.find(s=>s.id===id) : null;
+    const root = document.getElementById("modalRoot");
+
+    const dayOptionsChecks = DAYS.map(d=>`
+      <label><input type="checkbox" class="day-check" value="${d.key}" ${show? (show.day===d.key?'checked':'') : (d.key===state.currentDay?'checked':'')} ${show?'disabled':''}> ${d.label}</label>
+    `).join("");
+
+    root.innerHTML = `
+      <div class="overlay" id="showOverlay">
+        <div class="modal">
+          <h2>${show? "Modifier le spectacle" : "Ajouter un spectacle"}</h2>
+          <div class="sub">${show? "" : "Saisis les infos toi-même, ou pars d'une photo de flyer."}</div>
+
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="manual">Saisie manuelle</button>
+            <button class="tab-btn" data-tab="photo">Photo d'un flyer</button>
+          </div>
+
+          <div id="tab-photo" class="hidden">
+            <div class="photo-drop" id="photoDrop">📷 Cliquer pour prendre une photo ou choisir une image<br><span style="font-size:11px;">Tu pourras remplir les champs ci-dessous, ou laisser vide et compléter plus tard.</span></div>
+            <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
+            <img id="photoPreview" class="photo-preview hidden">
+          </div>
+
+          <div class="field">
+            <label>Jour(s)</label>
+            <div class="daychecks">${dayOptionsChecks}</div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Nom du spectacle *</label><input type="text" id="f_name" value="${show?escapeHtml(show.name):''}" required></div>
+            <div class="field" style="max-width:110px;"><label>Heure</label><input type="time" id="f_time" value="${show?(show.time||''):''}"></div>
+          </div>
+          <div class="field"><label>Compagnie / auteur</label><input type="text" id="f_company" value="${show?escapeHtml(show.company||''):''}"></div>
+          <div class="field"><label>Théâtre</label><input type="text" id="f_theatre" value="${show?escapeHtml(show.theatre||''):''}"></div>
+          <div class="field"><label>Adresse</label><input type="text" id="f_address" value="${show?escapeHtml(show.address||''):''}"></div>
+          <div class="field"><label>Lien de réservation</label><input type="url" id="f_link" placeholder="https://…" value="${show?escapeHtml(show.link||''):''}"></div>
+          <div class="field"><label>Note (optionnel — ex. "complet")</label><input type="text" id="f_note" value="${show?escapeHtml(show.note||''):''}"></div>
+
+          <div class="modal-actions">
+            <button class="btn" id="showCancel">Annuler</button>
+            <button class="btn primary" id="showSave">${show? "Enregistrer":"Ajouter"}</button>
+          </div>
+        </div>
+      </div>`;
+
+    let pendingPhotoBlob = null;
+
+    root.querySelectorAll(".tab-btn").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        root.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        const isPhoto = btn.dataset.tab === "photo";
+        document.getElementById("tab-photo").classList.toggle("hidden", !isPhoto);
+      });
+    });
+
+    document.getElementById("photoDrop").addEventListener("click", ()=> document.getElementById("photoInput").click());
+    document.getElementById("photoInput").addEventListener("change", async (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      try{
+        const blob = await resizeImageFile(file);
+        pendingPhotoBlob = blob;
+        const preview = document.getElementById("photoPreview");
+        preview.src = URL.createObjectURL(blob);
+        preview.classList.remove("hidden");
+      }catch(err){
+        console.error(err);
+        alert("Impossible de lire cette photo, réessaie.");
+      }
+    });
+
+    document.getElementById("showCancel").addEventListener("click", closeModal);
+    document.getElementById("showOverlay").addEventListener("click", (e)=>{ if(e.target.id==="showOverlay") closeModal(); });
+
+    document.getElementById("showSave").addEventListener("click", async ()=>{
+      const name = document.getElementById("f_name").value.trim();
+      if(!name){ alert("Le nom du spectacle est obligatoire."); return; }
+      const common = {
+        name,
+        time: document.getElementById("f_time").value,
+        company: document.getElementById("f_company").value.trim(),
+        theatre: document.getElementById("f_theatre").value.trim(),
+        address: document.getElementById("f_address").value.trim(),
+        link: document.getElementById("f_link").value.trim(),
+        note: document.getElementById("f_note").value.trim(),
+        address_unsure: false
+      };
+
+      const saveBtn = document.getElementById("showSave");
+      saveBtn.disabled = true; saveBtn.textContent = "Enregistrement…";
+
+      if(show){
+        let photo_url = show.photo_url;
+        if(pendingPhotoBlob) photo_url = await uploadPhoto(show.id, pendingPhotoBlob);
+        const fields = Object.assign({}, common, { photo_url });
+        await updateShow(show.id, fields);
+        Object.assign(show, fields);
+      } else {
+        const days = Array.from(root.querySelectorAll(".day-check:checked")).map(c=>c.value);
+        if(days.length===0){ alert("Choisis au moins un jour."); saveBtn.disabled=false; saveBtn.textContent="Ajouter"; return; }
+        for(const day of days){
+          const newId = uid();
+          let photo_url = null;
+          if(pendingPhotoBlob) photo_url = await uploadPhoto(newId, pendingPhotoBlob);
+          const newShow = Object.assign({}, common, { id:newId, day, photo_url, votes:{} });
+          await insertShow(newShow);
+          state.shows.push(newShow);
+        }
+      }
+      renderDayTabs();
+      renderTheatreFilter();
+      renderCards();
+      closeModal();
+    });
+  }
+
+  function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
+
+  function resizeImageFile(file, maxDim, quality){
+    maxDim = maxDim || 1000; quality = quality || 0.72;
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = ()=>{
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = ()=>{
+          let w = img.width, h = img.height;
+          if(w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else if(h >= w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          canvas.toBlob(blob => resolve(blob), "image/jpeg", quality);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
