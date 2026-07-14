@@ -124,7 +124,7 @@
   }
   .stub .time{ font-family:'IBM Plex Mono'; font-weight:600; font-size:17px; line-height:1.1; }
   .stub .duration{ font-family:'IBM Plex Mono'; font-size:10px; opacity:.85; margin-top:2px; }
-  .stub .day{ font-family:'IBM Plex Mono'; font-size:10px; opacity:.8; margin-top:4px; letter-spacing:.06em; }
+  .stub .day{ font-family:'IBM Plex Mono'; font-size:10px; opacity:.8; margin-top:4px; letter-spacing:.04em; line-height:1.3; word-break:break-word; }
 
   .view-switch{ display:flex; border:1px solid var(--line-strong); border-radius:9px; overflow:hidden; }
   .view-switch button{
@@ -577,6 +577,30 @@
     sel.innerHTML = `<option value="">Tous les théâtres</option>` + theatres.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
   }
 
+  function mergeSameNameShows(list){
+    const seen = new Map();
+    const merged = [];
+    list.forEach(s=>{
+      const key = s.name.trim().toLowerCase();
+      if(seen.has(key)){
+        seen.get(key).__days.push(s.day);
+      } else {
+        const copy = Object.assign({}, s, { __days: [s.day] });
+        seen.set(key, copy);
+        merged.push(copy);
+      }
+    });
+    merged.forEach(s => s.__days.sort());
+    return merged;
+  }
+
+  function dayBadgeHtml(s){
+    const days = s.__days || [s.day];
+    if(days.length > 1) return days.join(" · ");
+    const d = DAYS.find(x=>x.key===days[0]);
+    return d ? d.label.replace("Ven. ","V ").replace("Sam. ","S ").replace("Dim. ","D ") : days[0];
+  }
+
   function getFiltered(){
     const q = document.getElementById("searchInput").value.trim().toLowerCase();
     const theatre = document.getElementById("theatreFilter").value;
@@ -588,10 +612,11 @@
     if(theatre) list = list.filter(s => s.theatre === theatre);
     if(timeRange) list = list.filter(s => timeBucket(s.time) === timeRange);
 
+    if(state.currentDay === "all") list = mergeSameNameShows(list);
+
     list.sort((a,b)=>{
       if(sortBy==="votes") return voteCount(b) - voteCount(a);
       if(sortBy==="name") return a.name.localeCompare(b.name);
-      if(state.currentDay==="all" && a.day!==b.day) return a.day.localeCompare(b.day);
       return (a.time||"").localeCompare(b.time||"");
     });
     return list;
@@ -643,7 +668,7 @@
           updateShow(s.id, { lat: coords.lat, lng: coords.lng });
         }
         const marker = L.marker([coords.lat, coords.lng]).addTo(leafletMap);
-        marker.bindPopup(`<strong>${escapeHtml(s.name)}</strong><br>${escapeHtml(s.theatre||"")}<br>${escapeHtml(s.time||"")}`);
+        marker.bindPopup(`<strong>${escapeHtml(s.name)}</strong><br>${escapeHtml(s.theatre||"")}<br>${escapeHtml(s.time||"")} — ${escapeHtml(dayBadgeHtml(s))}`);
         bounds.push([coords.lat, coords.lng]);
       }
       if(bounds.length) leafletMap.fitBounds(bounds, { padding:[30,30] });
@@ -666,7 +691,7 @@
         <td>${escapeHtml(s.name)}</td>
         <td>${escapeHtml(s.theatre||"")}</td>
         <td>${addressLinkHtml(s)}</td>
-        <td class="col-time">${DAYS.find(d=>d.key===s.day).label.replace("Ven. ","Ven ").replace("Sam. ","Sam ").replace("Dim. ","Dim ")}</td>
+        <td class="col-time">${escapeHtml(dayBadgeHtml(s))}</td>
         <td class="col-time">${escapeHtml(s.time||"—")}</td>
         <td class="col-time">♥ ${voteCount(s)}</td>
       </tr>`).join("");
@@ -680,7 +705,7 @@
   }
 
   function cardHtml(s){
-    const dayLabel = DAYS.find(d=>d.key===s.day).label.replace("Ven. ","V ").replace("Sam. ","S ").replace("Dim. ","D ");
+    const dayLabel = dayBadgeHtml(s);
     const votes = s.votes || {};
     const count = voteCount(s);
     const iVoted = !!votes[state.currentVoter];
