@@ -291,6 +291,8 @@
     <div class="whoami">
       <label>Qui es-tu ?</label>
       <select id="voterSelect"></select>
+      <button class="icon-btn" id="copyMyCardBtn" title="Copier mon numéro de carte">📋</button>
+      <button class="linklike" id="copyAllCardsBtn">copier tout</button>
       <button class="linklike" id="editVotersBtn">noms</button>
     </div>
   </header>
@@ -731,6 +733,20 @@
   // ---------- events ----------
   function bindStaticEvents(){
     document.getElementById("voterSelect").addEventListener("change", e=>{ state.currentVoter = e.target.value; renderCards(); });
+    document.getElementById("copyMyCardBtn").addEventListener("click", (e)=>{
+      const voter = state.voters.find(v=>v.id===state.currentVoter);
+      if(!voter || !(voter.card||"").trim()){ alert("Aucun numéro de carte enregistré pour toi. Ajoute-le via \"noms\"."); return; }
+      copyToClipboard(voter.card.trim(), e.currentTarget);
+    });
+    document.getElementById("copyAllCardsBtn").addEventListener("click", (e)=>{
+      const text = state.voters
+        .filter(v=>(v.card||"").trim())
+        .slice()
+        .sort((a,b)=>a.name.localeCompare(b.name))
+        .map(v=>`${v.name}: ${v.card.trim()}`).join("\n");
+      if(!text){ alert("Aucun numéro de carte renseigné pour l'instant."); return; }
+      copyToClipboard(text, e.currentTarget);
+    });
     document.getElementById("editVotersBtn").addEventListener("click", openVoterModal);
     document.getElementById("searchInput").addEventListener("input", renderCards);
     document.getElementById("theatreFilter").addEventListener("change", renderCards);
@@ -881,6 +897,8 @@
     document.getElementById("voterCopyAllBtn").addEventListener("click", (e)=>{
       const text = rows
         .filter(v => (v.card||"").trim())
+        .slice()
+        .sort((a,b)=>a.name.localeCompare(b.name))
         .map(v => `${v.name}: ${v.card.trim()}`)
         .join("\n");
       if(!text){ alert("Aucun numéro de carte renseigné pour l'instant."); return; }
