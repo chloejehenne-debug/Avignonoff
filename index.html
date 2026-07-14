@@ -359,7 +359,8 @@
     currentDay: "17",
     currentVoter: "0",
     viewMode: "cards",
-    votesByKey: {}
+    votesByKey: {},
+    theatres: []
   };
 
   function normalizeVoters(raw){
@@ -435,6 +436,14 @@
         s.lat = lat; s.lng = lng;
         updateShowSilent(s.id, { lat, lng });
       });
+    if(show.theatre){
+      const theatreKey = show.theatre.trim().toLowerCase();
+      const theatre = state.theatres.find(t => t.name.trim().toLowerCase() === theatreKey);
+      if(theatre && (theatre.lat==null || theatre.lng==null)){
+        theatre.lat = lat; theatre.lng = lng;
+        upsertTheatre(theatre);
+      }
+    }
   }
 
   function isConfigured(){
@@ -483,6 +492,15 @@
     const { error } = await supabase.from("show_votes").upsert({ key, votes });
     if(error){ console.error(error); alert("Impossible d'enregistrer le vote : " + error.message); }
   }
+  async function loadTheatres(){
+    const { data, error } = await supabase.from("theatres").select("*");
+    if(error){ console.warn("Table 'theatres' introuvable :", error.message); return []; }
+    return data || [];
+  }
+  async function upsertTheatre(theatre){
+    const { error } = await supabase.from("theatres").upsert(theatre);
+    if(error){ console.warn("Impossible d'enregistrer le théâtre :", error.message); }
+  }
   async function insertShow(show){
     const { error } = await supabase.from("shows").insert([show]);
     if(error){ console.error(error); alert("Impossible d'ajouter ce spectacle : " + error.message); }
@@ -524,10 +542,11 @@
     if(!isConfigured()){ renderSetupBanner(); return; }
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const [shows, voters, votesByKey] = await Promise.all([loadShows(), loadVoters(), loadVotesByKey()]);
+    const [shows, voters, votesByKey, theatres] = await Promise.all([loadShows(), loadVoters(), loadVotesByKey(), loadTheatres()]);
     state.shows = shows;
     state.voters = voters;
     state.votesByKey = votesByKey;
+    state.theatres = theatres;
     if(!state.voters.some(v=>v.id===state.currentVoter)) state.currentVoter = state.voters[0].id;
 
     renderVoterSelect();
@@ -597,6 +616,7 @@
     state.shows = await loadShows();
     state.voters = await loadVoters();
     state.votesByKey = await loadVotesByKey();
+    state.theatres = await loadTheatres();
     renderVoterSelect(); renderDayTabs(); renderTheatreFilter(); renderCards();
   }
 
@@ -719,7 +739,10 @@
       for(const s of list){
         if(mapRenderToken !== myToken) return; // a newer render started meanwhile, abandon this one
         if(!s.address || /confirmer/i.test(s.address)){ unresolved.push(s); continue; }
-        let coords = (s.lat!=null && s.lng!=null) ? { lat:s.lat, lng:s.lng } : await geocodeAddress(s.address);
+        const theatreMatch = s.theatre ? state.theatres.find(t => t.name.trim().toLowerCase() === s.theatre.trim().toLowerCase()) : null;
+        let coords = (s.lat!=null && s.lng!=null) ? { lat:s.lat, lng:s.lng }
+          : (theatreMatch && theatreMatch.lat!=null && theatreMatch.lng!=null) ? { lat:theatreMatch.lat, lng:theatreMatch.lng }
+          : await geocodeAddress(s.address);
         if(mapRenderToken !== myToken) return;
         if(!coords){ unresolved.push(s); continue; }
         if(s.lat==null || s.lng==null){
@@ -1038,9 +1061,14 @@
             <div class="field" style="max-width:110px;"><label>Heure</label><input type="time" id="f_time" value="${show?(show.time||''):''}"></div>
             <div class="field" style="max-width:110px;"><label>Durée</label><input type="text" id="f_duration" placeholder="1h15" value="${show?escapeHtml(show.duration||''):''}"></div>
           </div>
-          <div class="field"><label>Compagnie / auteur</label><input type="text" id="f_company" value="${show?escapeHtml(show.company||''):''}"></div>
-          <div class="field"><label>Théâtre</label><input type="text" id="f_theatre" value="${show?escapeHtml(show.theatre||''):''}"></div>
+          <div class="field"><label>Théâtre</label>
+            <input type="text" id="f_theatre" list="theatreOptions" placeholder="Commence à taper…" value="${show?escapeHtml(show.theatre||''):''}">
+            <datalist id="theatreOptions">
+              ${state.theatres.map(t=>`<option value="${escapeHtml(t.name)}">`).join("")}
+            </datalist>
+          </div>
           <div class="field"><label>Adresse</label><input type="text" id="f_address" value="${show?escapeHtml(show.address||''):''}"></div>
+          <div class="sub" id="theatreHint" style="margin-top:-8px; margin-bottom:12px;"></div>
           <div class="field"><label>Lien de réservation</label><input type="url" id="f_link" placeholder="https://…" value="${show?escapeHtml(show.link||''):''}"></div>
           <div class="field"><label>Note (optionnel — ex. "complet")</label><input type="text" id="f_note" value="${show?escapeHtml(show.note||''):''}"></div>
 
@@ -1052,6 +1080,29 @@
       </div>`;
 
     let pendingPhotoBlob = null;
+    let matchedTheatre = show ? findTheatre(show.theatre) : null;
+
+    function findTheatre(name){
+      const key = (name||"").trim().toLowerCase();
+      return state.theatres.find(t => t.name.trim().toLowerCase() === key) || null;
+    }
+
+    function applyTheatreMatch(){
+      const typed = document.getElementById("f_theatre").value;
+      const hint = document.getElementById("theatreHint");
+      const match = findTheatre(typed);
+      matchedTheatre = match;
+      if(match){
+        document.getElementById("f_address").value = match.address || "";
+        hint.textContent = "Théâtre déjà connu — adresse complétée automatiquement.";
+      } else if(typed.trim()){
+        hint.textContent = "Nouveau théâtre — il sera enregistré avec l'adresse ci-dessous.";
+      } else {
+        hint.textContent = "";
+      }
+    }
+    document.getElementById("f_theatre").addEventListener("input", applyTheatreMatch);
+    if(matchedTheatre) applyTheatreMatch();
 
     root.querySelectorAll(".tab-btn").forEach(btn=>{
       btn.addEventListener("click", ()=>{
@@ -1084,20 +1135,40 @@
     document.getElementById("showSave").addEventListener("click", async ()=>{
       const name = document.getElementById("f_name").value.trim();
       if(!name){ alert("Le nom du spectacle est obligatoire."); return; }
+      const theatreName = document.getElementById("f_theatre").value.trim();
+      const addressTyped = document.getElementById("f_address").value.trim();
+      const finalMatch = findTheatre(theatreName);
+      const sameAddress = finalMatch && (finalMatch.address||"").trim() === addressTyped;
+      const lat = sameAddress ? finalMatch.lat : null;
+      const lng = sameAddress ? finalMatch.lng : null;
+
       const common = {
         name,
         time: document.getElementById("f_time").value,
         duration: document.getElementById("f_duration").value.trim(),
-        company: document.getElementById("f_company").value.trim(),
-        theatre: document.getElementById("f_theatre").value.trim(),
-        address: document.getElementById("f_address").value.trim(),
+        theatre: theatreName,
+        address: addressTyped,
         link: document.getElementById("f_link").value.trim(),
         note: document.getElementById("f_note").value.trim(),
-        address_unsure: false
+        address_unsure: false,
+        lat, lng
       };
 
       const saveBtn = document.getElementById("showSave");
       saveBtn.disabled = true; saveBtn.textContent = "Enregistrement…";
+
+      if(theatreName){
+        if(!finalMatch){
+          const newTheatre = { name: theatreName, address: addressTyped, address_unsure: false, lat: null, lng: null };
+          await upsertTheatre(newTheatre);
+          state.theatres.push(newTheatre);
+        } else if((finalMatch.address||"") !== addressTyped){
+          finalMatch.address = addressTyped;
+          finalMatch.lat = null;
+          finalMatch.lng = null;
+          await upsertTheatre(finalMatch);
+        }
+      }
 
       if(show){
         let photo_url = show.photo_url;
