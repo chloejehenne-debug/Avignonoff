@@ -311,8 +311,8 @@
       <option value="evening">Après 19h</option>
     </select>
     <select id="sortSelect">
+      <option value="votes" selected>Trier par nombre de votes</option>
       <option value="time">Trier par heure</option>
-      <option value="votes">Trier par nombre de votes</option>
       <option value="name">Trier par nom</option>
     </select>
     <div class="view-switch" id="viewSwitch">
@@ -358,7 +358,8 @@
     ],
     currentDay: "17",
     currentVoter: "0",
-    viewMode: "cards"
+    viewMode: "cards",
+    votesByKey: {}
   };
 
   function normalizeVoters(raw){
@@ -420,7 +421,9 @@
   function escapeHtml(str){
     return String(str||"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
   }
-  function voteCount(show){ return Object.values(show.votes||{}).filter(Boolean).length; }
+  function showKey(name){ return (name||"").trim().toLowerCase(); }
+  function votesFor(show){ return state.votesByKey[showKey(show.name)] || {}; }
+  function voteCount(show){ return Object.values(votesFor(show)).filter(Boolean).length; }
 
   // ---------- setup banner if not configured ----------
   function renderSetupBanner(){
@@ -439,7 +442,18 @@
   async function loadShows(){
     const { data, error } = await supabase.from("shows").select("*");
     if(error){ console.error(error); alert("Impossible de charger les spectacles depuis Supabase : " + error.message); return []; }
-    return (data||[]).map(row => Object.assign({}, row, { votes: row.votes || {} }));
+    return data || [];
+  }
+  async function loadVotesByKey(){
+    const { data, error } = await supabase.from("show_votes").select("*");
+    if(error){ console.error(error); return {}; }
+    const map = {};
+    (data||[]).forEach(row => { map[row.key] = row.votes || {}; });
+    return map;
+  }
+  async function saveVotesForKey(key, votes){
+    const { error } = await supabase.from("show_votes").upsert({ key, votes });
+    if(error){ console.error(error); alert("Impossible d'enregistrer le vote : " + error.message); }
   }
   async function insertShow(show){
     const { error } = await supabase.from("shows").insert([show]);
@@ -478,9 +492,10 @@
     if(!isConfigured()){ renderSetupBanner(); return; }
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const [shows, voters] = await Promise.all([loadShows(), loadVoters()]);
+    const [shows, voters, votesByKey] = await Promise.all([loadShows(), loadVoters(), loadVotesByKey()]);
     state.shows = shows;
     state.voters = voters;
+    state.votesByKey = votesByKey;
     if(!state.voters.some(v=>v.id===state.currentVoter)) state.currentVoter = state.voters[0].id;
 
     renderVoterSelect();
@@ -533,6 +548,12 @@
           renderVoterSelect(); renderCards();
         })
         .subscribe();
+      supabase.channel("votes-changes")
+        .on("postgres_changes", { event:"*", schema:"public", table:"show_votes" }, async () => {
+          state.votesByKey = await loadVotesByKey();
+          renderCards();
+        })
+        .subscribe();
       document.getElementById("refreshBtn").style.display = "none";
     }catch(e){
       console.warn("Realtime indisponible, utilise le bouton Actualiser.", e);
@@ -543,6 +564,7 @@
   async function refreshAll(){
     state.shows = await loadShows();
     state.voters = await loadVoters();
+    state.votesByKey = await loadVotesByKey();
     renderVoterSelect(); renderDayTabs(); renderTheatreFilter(); renderCards();
   }
 
@@ -706,7 +728,7 @@
 
   function cardHtml(s){
     const dayLabel = dayBadgeHtml(s);
-    const votes = s.votes || {};
+    const votes = votesFor(s);
     const count = voteCount(s);
     const iVoted = !!votes[state.currentVoter];
     const votedNames = state.voters.filter(v=>!!votes[v.id]).map(v=>v.name);
@@ -801,15 +823,12 @@
         const id = btn.dataset.id;
         const show = state.shows.find(s=>s.id===id);
         if(!show) return;
-        const newValue = !(show.votes && show.votes[state.currentVoter]);
-        const groupKey = show.name.trim().toLowerCase();
-        const siblings = state.shows.filter(s => s.name.trim().toLowerCase() === groupKey);
-        siblings.forEach(s => {
-          s.votes = s.votes || {};
-          s.votes[state.currentVoter] = newValue;
-        });
+        const key = showKey(show.name);
+        const votes = Object.assign({}, state.votesByKey[key] || {});
+        votes[state.currentVoter] = !votes[state.currentVoter];
+        state.votesByKey[key] = votes;
         renderCards();
-        await Promise.all(siblings.map(s => updateShow(s.id, { votes: s.votes })));
+        await saveVotesForKey(key, votes);
       });
     });
 
@@ -1056,7 +1075,7 @@
           const newId = uid();
           let photo_url = null;
           if(pendingPhotoBlob) photo_url = await uploadPhoto(newId, pendingPhotoBlob);
-          const newShow = Object.assign({}, common, { id:newId, day, photo_url, votes:{} });
+          const newShow = Object.assign({}, common, { id:newId, day, photo_url });
           await insertShow(newShow);
           state.shows.push(newShow);
         }
