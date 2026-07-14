@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
   :root{
     --bg:#EDE8DC;
@@ -1051,6 +1052,8 @@
             <div class="photo-drop" id="photoDrop">📷 Cliquer pour prendre une photo ou choisir une image<br><span style="font-size:11px;">Tu pourras remplir les champs ci-dessous, ou laisser vide et compléter plus tard.</span></div>
             <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
             <img id="photoPreview" class="photo-preview hidden">
+            <div class="sub" id="extractStatus" style="margin-top:8px;"></div>
+            <textarea id="extractText" class="hidden" readonly rows="4" style="width:100%; margin-top:8px; font-size:12px; color:var(--ink-soft);"></textarea>
           </div>
 
           <div class="field">
@@ -1124,13 +1127,62 @@
         const preview = document.getElementById("photoPreview");
         preview.src = URL.createObjectURL(blob);
         preview.classList.remove("hidden");
+        document.getElementById("extractText").classList.add("hidden");
+        await runExtraction();
       }catch(err){
         console.error(err);
         alert("Impossible de lire cette photo, réessaie.");
       }
     });
 
-    document.getElementById("showCancel").addEventListener("click", closeModal);
+    async function runExtraction(){
+      const status = document.getElementById("extractStatus");
+      const textArea = document.getElementById("extractText");
+      if(!pendingPhotoBlob){ return; }
+      status.textContent = "Analyse de la photo en cours… (peut prendre 10-20 secondes)";
+      try{
+        const result = await Tesseract.recognize(pendingPhotoBlob, "fra");
+        const text = result.data.text || "";
+        textArea.value = text.trim();
+        textArea.classList.remove("hidden");
+
+        let found = [];
+
+        // Théâtre : cherche un nom de théâtre déjà connu dans le texte extrait
+        const lower = text.toLowerCase();
+        const theatreMatch = state.theatres.find(t => t.name && lower.includes(t.name.toLowerCase()));
+        if(theatreMatch){
+          document.getElementById("f_theatre").value = theatreMatch.name;
+          applyTheatreMatch();
+          found.push("théâtre");
+        }
+
+        // Heure et durée : cherche les motifs du type "20h30", "1h15", "45min"
+        const timeMatches = [...text.matchAll(/\b([01]?\d|2[0-3])\s*[hH]\s*([0-5]\d)?\b/g)];
+        const durationMatches = [...text.matchAll(/\b(\d)\s*[hH]\s*(\d{2})?\b|\b(\d{2,3})\s*min\b/g)];
+
+        if(timeMatches.length && !document.getElementById("f_time").value){
+          const m = timeMatches[0];
+          const hh = String(m[1]).padStart(2,"0");
+          const mm = m[2] || "00";
+          document.getElementById("f_time").value = `${hh}:${mm}`;
+          found.push("heure (à vérifier)");
+        }
+        if(durationMatches.length && !document.getElementById("f_duration").value){
+          const dm = durationMatches.find(m => m[0] !== (timeMatches[0]?timeMatches[0][0]:null));
+          if(dm) { document.getElementById("f_duration").value = dm[0].replace(/\s+/g,""); found.push("durée (à vérifier)"); }
+        }
+
+        status.textContent = found.length
+          ? "Détecté automatiquement : " + found.join(", ") + ". Le texte brut est affiché ci-dessous — complète le nom et les autres champs à la main."
+          : "Rien de reconnu avec certitude. Le texte brut est affiché ci-dessous, copie ce dont tu as besoin.";
+      }catch(err){
+        console.error(err);
+        status.textContent = "Échec de l'analyse — remplis les champs manuellement.";
+      }
+    }
+
+
     document.getElementById("showOverlay").addEventListener("click", (e)=>{ if(e.target.id==="showOverlay") closeModal(); });
 
     document.getElementById("showSave").addEventListener("click", async ()=>{
