@@ -121,7 +121,25 @@
     content:""; position:absolute; right:0; top:8px; bottom:8px; border-left:2px dashed rgba(255,255,255,.45);
   }
   .stub .time{ font-family:'IBM Plex Mono'; font-weight:600; font-size:17px; line-height:1.1; }
+  .stub .duration{ font-family:'IBM Plex Mono'; font-size:10px; opacity:.85; margin-top:2px; }
   .stub .day{ font-family:'IBM Plex Mono'; font-size:10px; opacity:.8; margin-top:4px; letter-spacing:.06em; }
+
+  .view-switch{ display:flex; border:1px solid var(--line-strong); border-radius:9px; overflow:hidden; }
+  .view-switch button{
+    font-family:'Work Sans'; font-weight:600; font-size:13px; padding:8px 13px; border:none; background:#fff;
+    color:var(--ink-soft); cursor:pointer;
+  }
+  .view-switch button.active{ background:var(--primary); color:#fff; }
+
+  .table-wrap{ overflow-x:auto; background:var(--paper); border-radius:var(--radius); border:1px solid var(--line); box-shadow:var(--shadow); }
+  table.shows-table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.shows-table th{
+    text-align:left; font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:.04em; color:var(--ink-soft);
+    padding:12px 14px; border-bottom:2px solid var(--line-strong); white-space:nowrap;
+  }
+  table.shows-table td{ padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.shows-table tr:last-child td{ border-bottom:none; }
+  table.shows-table td.col-time{ font-family:'IBM Plex Mono'; font-weight:600; white-space:nowrap; }
 
   .card-body{ flex:1; padding:14px 16px 12px; min-width:0; display:flex; flex-direction:column; gap:8px; }
   .card-top{ display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
@@ -145,7 +163,8 @@
   .dropdown .divider{ height:1px; background:var(--line); margin:2px 0; }
 
   .card-theatre{ font-size:13px; color:var(--ink); }
-  .card-address{ font-size:12px; color:var(--ink-soft); }
+  .card-address{ font-size:12px; color:var(--ink-soft); text-decoration:none; }
+  .card-address:hover{ text-decoration:underline; }
   .card-address.unsure{ color:var(--stamp); font-style:italic; }
   .card-note{
     display:inline-block; font-family:'IBM Plex Mono'; font-size:10.5px; font-weight:600; letter-spacing:.03em;
@@ -160,18 +179,14 @@
     margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:10px;
     border-top:1px dashed var(--line-strong);
   }
-  .votes{ display:flex; gap:4px; flex-wrap:wrap; }
-  .vote-pill{
-    font-family:'IBM Plex Mono'; font-size:10.5px; font-weight:600; width:26px; height:26px; border-radius:50%;
-    border:1.5px dashed var(--line-strong); background:#fff; color:var(--ink-soft); cursor:pointer;
-    display:flex; align-items:center; justify-content:center; transition:transform .12s ease;
+  .vote-counter{
+    font-family:'IBM Plex Mono'; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;
+    border:1.5px solid var(--line-strong); background:#fff; color:var(--ink-soft); cursor:pointer;
+    border-radius:999px; padding:6px 13px; transition:transform .12s ease, background .12s ease;
   }
-  .vote-pill.voted{
-    background:var(--stamp); border-color:var(--stamp); color:#fff; border-style:solid;
-    transform:rotate(-6deg); animation:stampIn .18s ease-out;
-  }
-  @keyframes stampIn{ from{ transform:scale(1.5) rotate(-14deg); opacity:0;} to{ transform:scale(1) rotate(-6deg); opacity:1;} }
-  .vote-total{ font-family:'IBM Plex Mono'; font-size:11px; color:var(--ink-soft); margin-left:2px; }
+  .vote-counter:hover{ transform:scale(1.05); }
+  .vote-counter.voted{ background:var(--stamp); border-color:var(--stamp); color:#fff; }
+  .vote-counter .heart{ font-size:13px; }
 
   .reserve-link{
     font-family:'Work Sans'; font-weight:600; font-size:12.5px; text-decoration:none; color:#fff;
@@ -258,12 +273,21 @@
   <div class="toolbar">
     <input type="search" id="searchInput" placeholder="Chercher un spectacle ou une compagnie…">
     <select id="theatreFilter"></select>
+    <select id="timeRangeFilter">
+      <option value="">Toute la journée</option>
+      <option value="morning">Avant 14h</option>
+      <option value="afternoon">14h – 19h</option>
+      <option value="evening">Après 19h</option>
+    </select>
     <select id="sortSelect">
       <option value="time">Trier par heure</option>
       <option value="votes">Trier par nombre de votes</option>
       <option value="name">Trier par nom</option>
     </select>
-    <label class="minvotes">≥ votes <input type="number" id="minVotes" min="0" max="5" value="0"></label>
+    <div class="view-switch" id="viewSwitch">
+      <button data-view="cards" class="active">Cartes</button>
+      <button data-view="table">Tableau</button>
+    </div>
     <button class="btn primary" id="addBtn">+ Ajouter un spectacle</button>
   </div>
 
@@ -295,8 +319,22 @@
     shows: [],
     voters: ["Perso 1","Perso 2","Perso 3","Perso 4","Perso 5"],
     currentDay: "17",
-    currentVoter: 0
+    currentVoter: 0,
+    viewMode: "cards"
   };
+
+  function timeBucket(time){
+    if(!time) return "";
+    const hour = parseInt(time.split(":")[0], 10);
+    if(isNaN(hour)) return "";
+    if(hour < 14) return "morning";
+    if(hour < 19) return "afternoon";
+    return "evening";
+  }
+
+  function mapsUrl(address){
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address);
+  }
 
   function isConfigured(){
     return SUPABASE_URL.indexOf("supabase.co") !== -1 && SUPABASE_ANON_KEY.length > 20;
@@ -437,13 +475,13 @@
   function getFiltered(){
     const q = document.getElementById("searchInput").value.trim().toLowerCase();
     const theatre = document.getElementById("theatreFilter").value;
+    const timeRange = document.getElementById("timeRangeFilter").value;
     const sortBy = document.getElementById("sortSelect").value;
-    const minVotes = parseInt(document.getElementById("minVotes").value || "0", 10);
 
     let list = state.shows.filter(s => s.day === state.currentDay);
     if(q) list = list.filter(s => (s.name+" "+(s.company||"")).toLowerCase().includes(q));
     if(theatre) list = list.filter(s => s.theatre === theatre);
-    list = list.filter(s => voteCount(s) >= minVotes);
+    if(timeRange) list = list.filter(s => timeBucket(s.time) === timeRange);
 
     list.sort((a,b)=>{
       if(sortBy==="votes") return voteCount(b) - voteCount(a);
@@ -460,22 +498,50 @@
       wrap.innerHTML = `<div class="empty">Aucun spectacle ne correspond à ces filtres pour ce jour.<br>Essaie d'élargir la recherche ou d'ajouter un spectacle.</div>`;
       return;
     }
-    wrap.innerHTML = list.map(cardHtml).join("");
+    if(state.viewMode === "table"){
+      wrap.className = "";
+      wrap.innerHTML = tableHtml(list);
+    } else {
+      wrap.className = "cards";
+      wrap.innerHTML = list.map(cardHtml).join("");
+    }
     bindCardEvents();
+  }
+
+  function addressLinkHtml(s, extraClass){
+    if(!s.address) return "";
+    const cls = "card-address" + (s.address_unsure ? " unsure" : "") + (extraClass ? " " + extraClass : "");
+    return `<a class="${cls}" href="${mapsUrl(s.address)}" target="_blank" rel="noopener">${escapeHtml(s.address)}</a>`;
+  }
+
+  function tableHtml(list){
+    const rows = list.map(s => `
+      <tr data-id="${s.id}">
+        <td>${escapeHtml(s.name)}</td>
+        <td>${escapeHtml(s.theatre||"")}</td>
+        <td>${addressLinkHtml(s)}</td>
+        <td class="col-time">${escapeHtml(s.time||"—")}</td>
+      </tr>`).join("");
+    return `
+      <div class="table-wrap">
+        <table class="shows-table">
+          <thead><tr><th>Nom</th><th>Théâtre</th><th>Adresse</th><th>Heure</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }
 
   function cardHtml(s){
     const dayLabel = DAYS.find(d=>d.key===s.day).label.replace("Ven. ","V ").replace("Sam. ","S ").replace("Dim. ","D ");
     const votes = s.votes || {};
-    const pills = state.voters.map((v,i)=>{
-      const voted = !!votes[i];
-      return `<button class="vote-pill ${voted?'voted':''}" data-vote-idx="${i}" data-id="${s.id}" title="${escapeHtml(v)}">${escapeHtml(v).slice(0,2).toUpperCase()}</button>`;
-    }).join("");
     const count = voteCount(s);
+    const iVoted = !!votes[state.currentVoter];
+    const votedNames = state.voters.filter((v,i)=>!!votes[i]);
+    const voteTitle = votedNames.length ? "A voté : " + votedNames.join(", ") : "Personne n'a encore voté";
 
-    const addressClass = s.address_unsure ? "card-address unsure" : "card-address";
-    const noteHtml = s.note ? `<span class="card-note">${escapeHtml(s.note)}</span>` : "";
+    const noteHtml = (s.note && !/rel.che/i.test(s.note)) ? `<span class="card-note">${escapeHtml(s.note)}</span>` : "";
     const photoHtml = s.photo_url ? `<img class="photo-thumb" data-id="${s.id}" src="${escapeHtml(s.photo_url)}" alt="Flyer de ${escapeHtml(s.name)}">` : "";
+    const durationHtml = s.duration ? `<div class="duration mono">${escapeHtml(s.duration)}</div>` : "";
 
     const reserveHtml = s.link
       ? `<a class="reserve-link" href="${escapeHtml(s.link)}" target="_blank" rel="noopener">Réserver ↗</a>`
@@ -485,13 +551,13 @@
     <article class="card" data-id="${s.id}">
       <div class="stub">
         <div class="time mono">${escapeHtml(s.time||"—")}</div>
+        ${durationHtml}
         <div class="day">${escapeHtml(dayLabel)}</div>
       </div>
       <div class="card-body">
         <div class="card-top">
           <div class="card-title">
             <h3>${escapeHtml(s.name)}</h3>
-            ${s.company ? `<div class="card-company">${escapeHtml(s.company)}</div>` : ""}
           </div>
           <div class="card-menu">
             <button class="icon-btn menu-toggle" data-id="${s.id}">⋯</button>
@@ -503,14 +569,13 @@
           </div>
         </div>
         <div class="card-theatre">${escapeHtml(s.theatre)}</div>
-        <div class="${addressClass}">${escapeHtml(s.address||"")}</div>
+        ${addressLinkHtml(s)}
         ${noteHtml}
         ${photoHtml}
         <div class="card-bottom">
-          <div class="votes">
-            ${pills}
-            <span class="vote-total">${count}/5</span>
-          </div>
+          <button class="vote-counter ${iVoted?'voted':''}" data-id="${s.id}" title="${escapeHtml(voteTitle)}">
+            <span class="heart">♥</span><span>${count}</span>
+          </button>
           ${reserveHtml}
         </div>
       </div>
@@ -523,9 +588,17 @@
     document.getElementById("editVotersBtn").addEventListener("click", openVoterModal);
     document.getElementById("searchInput").addEventListener("input", renderCards);
     document.getElementById("theatreFilter").addEventListener("change", renderCards);
+    document.getElementById("timeRangeFilter").addEventListener("change", renderCards);
     document.getElementById("sortSelect").addEventListener("change", renderCards);
-    document.getElementById("minVotes").addEventListener("input", renderCards);
     document.getElementById("addBtn").addEventListener("click", ()=>openShowModal(null));
+    document.querySelectorAll("#viewSwitch button").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        state.viewMode = btn.dataset.view;
+        document.querySelectorAll("#viewSwitch button").forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        renderCards();
+      });
+    });
     document.addEventListener("click", (e)=>{
       if(!e.target.closest(".card-menu")){
         document.querySelectorAll(".dropdown.open").forEach(d=>d.classList.remove("open"));
@@ -536,14 +609,13 @@
   function bindCardEvents(){
     const wrap = document.getElementById("cards");
 
-    wrap.querySelectorAll(".vote-pill").forEach(btn=>{
+    wrap.querySelectorAll(".vote-counter").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
         const id = btn.dataset.id;
-        const idx = btn.dataset.voteIdx;
         const show = state.shows.find(s=>s.id===id);
         if(!show) return;
         show.votes = show.votes || {};
-        show.votes[idx] = !show.votes[idx];
+        show.votes[state.currentVoter] = !show.votes[state.currentVoter];
         renderCards();
         await updateShow(id, { votes: show.votes });
       });
@@ -661,9 +733,10 @@
             <label>Jour(s)</label>
             <div class="daychecks">${dayOptionsChecks}</div>
           </div>
+          <div class="field"><label>Nom du spectacle *</label><input type="text" id="f_name" value="${show?escapeHtml(show.name):''}" required></div>
           <div class="field-row">
-            <div class="field"><label>Nom du spectacle *</label><input type="text" id="f_name" value="${show?escapeHtml(show.name):''}" required></div>
             <div class="field" style="max-width:110px;"><label>Heure</label><input type="time" id="f_time" value="${show?(show.time||''):''}"></div>
+            <div class="field" style="max-width:110px;"><label>Durée</label><input type="text" id="f_duration" placeholder="1h15" value="${show?escapeHtml(show.duration||''):''}"></div>
           </div>
           <div class="field"><label>Compagnie / auteur</label><input type="text" id="f_company" value="${show?escapeHtml(show.company||''):''}"></div>
           <div class="field"><label>Théâtre</label><input type="text" id="f_theatre" value="${show?escapeHtml(show.theatre||''):''}"></div>
@@ -714,6 +787,7 @@
       const common = {
         name,
         time: document.getElementById("f_time").value,
+        duration: document.getElementById("f_duration").value.trim(),
         company: document.getElementById("f_company").value.trim(),
         theatre: document.getElementById("f_theatre").value.trim(),
         address: document.getElementById("f_address").value.trim(),
