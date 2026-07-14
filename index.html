@@ -225,6 +225,9 @@
   .photo-preview{ max-width:100%; max-height:220px; border-radius:10px; margin-top:10px; display:block; }
   .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
   .voter-edit-row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+  .voter-edit-row .v-name{ flex:1.2; }
+  .voter-edit-row .v-card{ flex:1; }
+  .voter-edit-row .v-remove{ flex-shrink:0; }
   .voter-edit-row input{ flex:1; }
 
   .lightbox{
@@ -303,8 +306,8 @@
   // ============================================================
   // CONFIGURATION SUPABASE — à remplir une seule fois
   // ============================================================
-  const SUPABASE_URL = "https://znngdvphctrtfsejmeqd.supabase.co";       // ex: https://abcdefgh.supabase.co
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpubmdkdnBoY3RydGZzZWptZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNDU0NjUsImV4cCI6MjA5OTYyMTQ2NX0.ZMrktjaCiAT9z8Bvj5FLHBYGQTHI2NyDjYuR3D9-708";       // Project Settings > API > anon public
+  const SUPABASE_URL = "https://znngdvphctrtfsejmeqd.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpubmdkdnBoY3RydGZzZWptZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNDU0NjUsImV4cCI6MjA5OTYyMTQ2NX0.ZMrktjaCiAT9z8Bvj5FLHBYGQTHI2NyDjYuR3D9-708";
   const PHOTO_BUCKET = "flyers";
   // ============================================================
 
@@ -317,11 +320,35 @@
   let supabase = null;
   let state = {
     shows: [],
-    voters: ["Perso 1","Perso 2","Perso 3","Perso 4","Perso 5"],
+    voters: [
+      {id:"0", name:"Perso 1", card:""},
+      {id:"1", name:"Perso 2", card:""},
+      {id:"2", name:"Perso 3", card:""},
+      {id:"3", name:"Perso 4", card:""},
+      {id:"4", name:"Perso 5", card:""}
+    ],
     currentDay: "17",
-    currentVoter: 0,
+    currentVoter: "0",
     viewMode: "cards"
   };
+
+  function normalizeVoters(raw){
+    if(!Array.isArray(raw) || raw.length===0){
+      return [
+        {id:"0", name:"Perso 1", card:""},
+        {id:"1", name:"Perso 2", card:""},
+        {id:"2", name:"Perso 3", card:""},
+        {id:"3", name:"Perso 4", card:""},
+        {id:"4", name:"Perso 5", card:""}
+      ];
+    }
+    return raw.map((v,i)=>{
+      if(typeof v === "string") return {id:String(i), name:v, card:""};
+      return {id: v.id!=null ? String(v.id) : String(i), name: v.name||"Perso", card: v.card||""};
+    });
+  }
+
+  function voterUid(){ return "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 
   function timeBucket(time){
     if(!time) return "";
@@ -379,8 +406,8 @@
   }
   async function loadVoters(){
     const { data, error } = await supabase.from("app_config").select("value").eq("key","voters").single();
-    if(error){ console.error(error); return ["Perso 1","Perso 2","Perso 3","Perso 4","Perso 5"]; }
-    return data.value;
+    if(error){ console.error(error); return normalizeVoters(null); }
+    return normalizeVoters(data.value);
   }
   async function saveVoters(){
     const { error } = await supabase.from("app_config").update({ value: state.voters }).eq("key","voters");
@@ -405,6 +432,7 @@
     const [shows, voters] = await Promise.all([loadShows(), loadVoters()]);
     state.shows = shows;
     state.voters = voters;
+    if(!state.voters.some(v=>v.id===state.currentVoter)) state.currentVoter = state.voters[0].id;
 
     renderVoterSelect();
     renderDayTabs();
@@ -462,7 +490,7 @@
 
   function renderVoterSelect(){
     const sel = document.getElementById("voterSelect");
-    sel.innerHTML = state.voters.map((v,i)=>`<option value="${i}">${escapeHtml(v)}</option>`).join("");
+    sel.innerHTML = state.voters.map(v=>`<option value="${escapeHtml(v.id)}">${escapeHtml(v.name)}</option>`).join("");
     sel.value = state.currentVoter;
   }
 
@@ -536,7 +564,7 @@
     const votes = s.votes || {};
     const count = voteCount(s);
     const iVoted = !!votes[state.currentVoter];
-    const votedNames = state.voters.filter((v,i)=>!!votes[i]);
+    const votedNames = state.voters.filter(v=>!!votes[v.id]).map(v=>v.name);
     const voteTitle = votedNames.length ? "A voté : " + votedNames.join(", ") : "Personne n'a encore voté";
 
     const noteHtml = (s.note && !/rel.che/i.test(s.note)) ? `<span class="card-note">${escapeHtml(s.note)}</span>` : "";
@@ -584,7 +612,7 @@
 
   // ---------- events ----------
   function bindStaticEvents(){
-    document.getElementById("voterSelect").addEventListener("change", e=>{ state.currentVoter = parseInt(e.target.value,10); });
+    document.getElementById("voterSelect").addEventListener("change", e=>{ state.currentVoter = e.target.value; renderCards(); });
     document.getElementById("editVotersBtn").addEventListener("click", openVoterModal);
     document.getElementById("searchInput").addEventListener("input", renderCards);
     document.getElementById("theatreFilter").addEventListener("change", renderCards);
@@ -677,24 +705,46 @@
     root.innerHTML = `
       <div class="overlay" id="voterOverlay">
         <div class="modal">
-          <h2>Les 5 votants</h2>
-          <div class="sub">Ces noms apparaissent en initiales sur chaque spectacle.</div>
+          <h2>Le groupe</h2>
+          <div class="sub">Nom et n° de carte off (facultatif) pour chaque personne.</div>
           <div id="voterRows"></div>
+          <button class="btn" id="voterAddBtn" style="margin-bottom:14px;">+ Ajouter une personne</button>
           <div class="modal-actions">
             <button class="btn" id="voterCancel">Annuler</button>
             <button class="btn primary" id="voterSave">Enregistrer</button>
           </div>
         </div>
       </div>`;
-    const rows = document.getElementById("voterRows");
-    rows.innerHTML = state.voters.map((v,i)=>`
-      <div class="voter-edit-row">
-        <input type="text" data-idx="${i}" value="${escapeHtml(v)}" maxlength="20">
-      </div>`).join("");
+
+    let rows = state.voters.map(v => Object.assign({}, v));
+
+    function renderRows(){
+      const wrap = document.getElementById("voterRows");
+      wrap.innerHTML = rows.map((v,i)=>`
+        <div class="voter-edit-row" data-i="${i}">
+          <input type="text" class="v-name" placeholder="Prénom" value="${escapeHtml(v.name)}" maxlength="20">
+          <input type="text" class="v-card" placeholder="N° carte off" value="${escapeHtml(v.card||'')}" maxlength="30">
+          <button class="icon-btn v-remove" title="Retirer" ${rows.length<=1?'disabled':''}>🗑</button>
+        </div>`).join("");
+      wrap.querySelectorAll(".v-name").forEach((inp,i)=> inp.addEventListener("input", ()=>{ rows[i].name = inp.value; }));
+      wrap.querySelectorAll(".v-card").forEach((inp,i)=> inp.addEventListener("input", ()=>{ rows[i].card = inp.value; }));
+      wrap.querySelectorAll(".v-remove").forEach((btn,i)=> btn.addEventListener("click", ()=>{
+        if(rows.length<=1) return;
+        rows.splice(i,1);
+        renderRows();
+      }));
+    }
+    renderRows();
+
+    document.getElementById("voterAddBtn").addEventListener("click", ()=>{
+      rows.push({ id: voterUid(), name: "Nouvelle personne", card: "" });
+      renderRows();
+    });
+
     document.getElementById("voterCancel").addEventListener("click", closeModal);
     document.getElementById("voterSave").addEventListener("click", async ()=>{
-      const inputs = rows.querySelectorAll("input");
-      state.voters = Array.from(inputs).map(i=> i.value.trim() || "Perso");
+      state.voters = rows.map(v => ({ id: v.id, name: (v.name||"").trim() || "Perso", card: (v.card||"").trim() }));
+      if(!state.voters.some(v=>v.id===state.currentVoter)) state.currentVoter = state.voters[0].id;
       await saveVoters();
       renderVoterSelect();
       renderCards();
