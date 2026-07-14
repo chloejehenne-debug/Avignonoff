@@ -1152,6 +1152,27 @@
 
         let found = [];
 
+        // Nom du spectacle : on suppose que c'est la ligne au texte le plus "gros" (grande hauteur),
+        // typiquement le titre en haut d'une affiche.
+        const lines = (result.data.lines || [])
+          .filter(l => l.text && l.text.trim().replace(/[^a-zA-ZÀ-ÿ]/g,"").length >= 3)
+          .map(l => ({ text: l.text.trim(), height: (l.bbox ? (l.bbox.y1 - l.bbox.y0) : 0) }));
+        if(lines.length && !document.getElementById("f_name").value.trim()){
+          lines.sort((a,b)=> b.height - a.height);
+          const guess = lines[0].text.replace(/\s+/g," ").trim();
+          if(guess.length >= 3 && guess.length <= 60){
+            document.getElementById("f_name").value = guess;
+            found.push("nom (à vérifier)");
+          }
+        }
+
+        // Lien de réservation : cherche une URL dans le texte
+        const urlMatch = text.match(/https?:\/\/[^\s]+/i);
+        if(urlMatch && !document.getElementById("f_link").value.trim()){
+          document.getElementById("f_link").value = urlMatch[0].replace(/[.,)]+$/,"");
+          found.push("lien");
+        }
+
         // Théâtre : cherche un nom de théâtre déjà connu dans le texte extrait
         const lower = text.toLowerCase();
         const theatreMatch = state.theatres.find(t => t.name && lower.includes(t.name.toLowerCase()));
@@ -1178,7 +1199,7 @@
         }
 
         status.textContent = found.length
-          ? "Détecté automatiquement : " + found.join(", ") + ". Le texte brut est affiché ci-dessous — complète le nom et les autres champs à la main."
+          ? "Détecté automatiquement : " + found.join(", ") + ". Vérifie ces champs (l'OCR n'est pas parfait) et complète le reste."
           : "Rien de reconnu avec certitude. Le texte brut est affiché ci-dessous, copie ce dont tu as besoin.";
       }catch(err){
         console.error(err);
