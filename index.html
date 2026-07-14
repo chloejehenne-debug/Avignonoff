@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -141,6 +143,11 @@
   table.shows-table tr:last-child td{ border-bottom:none; }
   table.shows-table td.col-time{ font-family:'IBM Plex Mono'; font-weight:600; white-space:nowrap; }
 
+  .map-view{ height:560px; border-radius:var(--radius); overflow:hidden; border:1px solid var(--line); box-shadow:var(--shadow); }
+  .map-unsure-note{ margin-top:10px; font-size:12px; color:var(--ink-soft); font-style:italic; }
+  .leaflet-popup-content{ font-family:'Work Sans'; font-size:13px; }
+  .leaflet-popup-content strong{ font-family:'Fraunces'; font-size:14.5px; }
+
   .card-body{ flex:1; padding:14px 16px 12px; min-width:0; display:flex; flex-direction:column; gap:8px; }
   .card-top{ display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
   .card-title h3{ font-size:17px; font-weight:600; line-height:1.2; }
@@ -228,6 +235,7 @@
   .voter-edit-row .v-name{ flex:1.2; }
   .voter-edit-row .v-card{ flex:1; }
   .voter-edit-row .v-remove{ flex-shrink:0; }
+  .voter-edit-row .v-copy{ flex-shrink:0; }
   .voter-edit-row input{ flex:1; }
 
   .lightbox{
@@ -306,8 +314,9 @@
       <option value="name">Trier par nom</option>
     </select>
     <div class="view-switch" id="viewSwitch">
-      <button data-view="cards" class="active">Cartes</button>
+      <button data-view="cards" class="active">Fiches</button>
       <button data-view="table">Tableau</button>
+      <button data-view="map">Carte</button>
     </div>
     <button class="btn primary" id="addBtn">+ Ajouter un spectacle</button>
   </div>
@@ -379,6 +388,26 @@
 
   function mapsUrl(address){
     return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address);
+  }
+
+  const geocodeCache = {};
+  let leafletMap = null;
+  function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+  async function geocodeAddress(address){
+    if(geocodeCache[address]) return geocodeCache[address];
+    try{
+      const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(address);
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data && data[0]){
+        const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        geocodeCache[address] = coords;
+        await sleep(300);
+        return coords;
+      }
+    }catch(e){ console.warn("Géocodage échoué pour", address, e); }
+    return null;
   }
 
   function isConfigured(){
@@ -519,7 +548,10 @@
   function renderDayTabs(){
     const nav = document.getElementById("dayTabs");
     const refreshBtn = document.getElementById("refreshBtn").outerHTML;
-    nav.innerHTML = DAYS.map(d=>{
+    const allTab = `<button class="daytab ${state.currentDay==='all'?'active':''}" data-day="all">
+      Tous les jours <span class="count">${state.shows.length}</span>
+    </button>`;
+    nav.innerHTML = allTab + DAYS.map(d=>{
       const count = state.shows.filter(s=>s.day===d.key).length;
       return `<button class="daytab ${d.key===state.currentDay?'active':''}" data-day="${d.key}">
         ${d.label} <span class="count">${count}</span>
@@ -549,7 +581,7 @@
     const timeRange = document.getElementById("timeRangeFilter").value;
     const sortBy = document.getElementById("sortSelect").value;
 
-    let list = state.shows.filter(s => s.day === state.currentDay);
+    let list = state.currentDay === "all" ? state.shows.slice() : state.shows.filter(s => s.day === state.currentDay);
     if(q) list = list.filter(s => (s.name+" "+(s.company||"")).toLowerCase().includes(q));
     if(theatre) list = list.filter(s => s.theatre === theatre);
     if(timeRange) list = list.filter(s => timeBucket(s.time) === timeRange);
@@ -557,6 +589,7 @@
     list.sort((a,b)=>{
       if(sortBy==="votes") return voteCount(b) - voteCount(a);
       if(sortBy==="name") return a.name.localeCompare(b.name);
+      if(state.currentDay==="all" && a.day!==b.day) return a.day.localeCompare(b.day);
       return (a.time||"").localeCompare(b.time||"");
     });
     return list;
@@ -566,17 +599,57 @@
     const wrap = document.getElementById("cards");
     const list = getFiltered();
     if(list.length===0){
+      wrap.className = "cards";
       wrap.innerHTML = `<div class="empty">Aucun spectacle ne correspond à ces filtres pour ce jour.<br>Essaie d'élargir la recherche ou d'ajouter un spectacle.</div>`;
       return;
     }
     if(state.viewMode === "table"){
       wrap.className = "";
       wrap.innerHTML = tableHtml(list);
+    } else if(state.viewMode === "map"){
+      renderMapView(list);
+      return;
     } else {
       wrap.className = "cards";
       wrap.innerHTML = list.map(cardHtml).join("");
     }
     bindCardEvents();
+  }
+
+  function renderMapView(list){
+    const wrap = document.getElementById("cards");
+    wrap.className = "";
+    wrap.innerHTML = `<div id="mapView" class="map-view"></div><div id="mapUnsure"></div>`;
+
+    if(leafletMap){ leafletMap.remove(); leafletMap = null; }
+
+    leafletMap = L.map("mapView").setView([43.9493, 4.8055], 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19
+    }).addTo(leafletMap);
+
+    (async ()=>{
+      const bounds = [];
+      const unresolved = [];
+      for(const s of list){
+        if(!s.address || /confirmer/i.test(s.address)){ unresolved.push(s); continue; }
+        let coords = (s.lat!=null && s.lng!=null) ? { lat:s.lat, lng:s.lng } : await geocodeAddress(s.address);
+        if(!coords){ unresolved.push(s); continue; }
+        if(s.lat==null || s.lng==null){
+          s.lat = coords.lat; s.lng = coords.lng;
+          updateShow(s.id, { lat: coords.lat, lng: coords.lng });
+        }
+        const marker = L.marker([coords.lat, coords.lng]).addTo(leafletMap);
+        marker.bindPopup(`<strong>${escapeHtml(s.name)}</strong><br>${escapeHtml(s.theatre||"")}<br>${escapeHtml(s.time||"")}`);
+        bounds.push([coords.lat, coords.lng]);
+      }
+      if(bounds.length) leafletMap.fitBounds(bounds, { padding:[30,30] });
+      const unsureDiv = document.getElementById("mapUnsure");
+      if(unsureDiv && unresolved.length){
+        unsureDiv.innerHTML = `<div class="map-unsure-note">Adresse non localisée sur la carte pour : ${unresolved.map(s=>escapeHtml(s.name)).join(", ")}</div>`;
+      }
+    })();
   }
 
   function addressLinkHtml(s, extraClass){
@@ -591,13 +664,14 @@
         <td>${escapeHtml(s.name)}</td>
         <td>${escapeHtml(s.theatre||"")}</td>
         <td>${addressLinkHtml(s)}</td>
+        <td class="col-time">${DAYS.find(d=>d.key===s.day).label.replace("Ven. ","Ven ").replace("Sam. ","Sam ").replace("Dim. ","Dim ")}</td>
         <td class="col-time">${escapeHtml(s.time||"—")}</td>
         <td class="col-time">♥ ${voteCount(s)}</td>
       </tr>`).join("");
     return `
       <div class="table-wrap">
         <table class="shows-table">
-          <thead><tr><th>Nom</th><th>Théâtre</th><th>Adresse</th><th>Heure</th><th>Votes</th></tr></thead>
+          <thead><tr><th>Nom</th><th>Théâtre</th><th>Adresse</th><th>Jour</th><th>Heure</th><th>Votes</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -743,6 +817,17 @@
     document.body.appendChild(div);
   }
 
+  function copyToClipboard(text, btn){
+    if(!text){ return; }
+    navigator.clipboard.writeText(text).then(()=>{
+      if(btn){
+        const original = btn.textContent;
+        btn.textContent = "✓";
+        setTimeout(()=>{ btn.textContent = original; }, 1200);
+      }
+    }).catch(()=>{ alert("Impossible de copier automatiquement, sélectionne le texte manuellement."); });
+  }
+
   // ---------- voter name modal ----------
   function openVoterModal(){
     const root = document.getElementById("modalRoot");
@@ -752,7 +837,10 @@
           <h2>Le groupe</h2>
           <div class="sub">Nom et n° de carte off (facultatif) pour chaque personne.</div>
           <div id="voterRows"></div>
-          <button class="btn" id="voterAddBtn" style="margin-bottom:14px;">+ Ajouter une personne</button>
+          <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+            <button class="btn" id="voterAddBtn">+ Ajouter une personne</button>
+            <button class="btn" id="voterCopyAllBtn">📋 Copier tous les numéros</button>
+          </div>
           <div class="modal-actions">
             <button class="btn" id="voterCancel">Annuler</button>
             <button class="btn primary" id="voterSave">Enregistrer</button>
@@ -768,10 +856,15 @@
         <div class="voter-edit-row" data-i="${i}">
           <input type="text" class="v-name" placeholder="Prénom" value="${escapeHtml(v.name)}" maxlength="20">
           <input type="text" class="v-card" placeholder="N° carte off" value="${escapeHtml(v.card||'')}" maxlength="30">
+          <button class="icon-btn v-copy" title="Copier ce numéro">📋</button>
           <button class="icon-btn v-remove" title="Retirer" ${rows.length<=1?'disabled':''}>🗑</button>
         </div>`).join("");
       wrap.querySelectorAll(".v-name").forEach((inp,i)=> inp.addEventListener("input", ()=>{ rows[i].name = inp.value; }));
       wrap.querySelectorAll(".v-card").forEach((inp,i)=> inp.addEventListener("input", ()=>{ rows[i].card = inp.value; }));
+      wrap.querySelectorAll(".v-copy").forEach((btn,i)=> btn.addEventListener("click", ()=>{
+        const cardInput = wrap.querySelectorAll(".v-card")[i];
+        copyToClipboard(cardInput.value.trim(), btn);
+      }));
       wrap.querySelectorAll(".v-remove").forEach((btn,i)=> btn.addEventListener("click", ()=>{
         if(rows.length<=1) return;
         rows.splice(i,1);
@@ -783,6 +876,15 @@
     document.getElementById("voterAddBtn").addEventListener("click", ()=>{
       rows.push({ id: voterUid(), name: "Nouvelle personne", card: "" });
       renderRows();
+    });
+
+    document.getElementById("voterCopyAllBtn").addEventListener("click", (e)=>{
+      const text = rows
+        .filter(v => (v.card||"").trim())
+        .map(v => `${v.name}: ${v.card.trim()}`)
+        .join("\n");
+      if(!text){ alert("Aucun numéro de carte renseigné pour l'instant."); return; }
+      copyToClipboard(text, e.currentTarget);
     });
 
     document.getElementById("voterCancel").addEventListener("click", closeModal);
