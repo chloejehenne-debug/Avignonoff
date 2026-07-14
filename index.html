@@ -776,10 +776,15 @@
         const id = btn.dataset.id;
         const show = state.shows.find(s=>s.id===id);
         if(!show) return;
-        show.votes = show.votes || {};
-        show.votes[state.currentVoter] = !show.votes[state.currentVoter];
+        const newValue = !(show.votes && show.votes[state.currentVoter]);
+        const groupKey = show.name.trim().toLowerCase();
+        const siblings = state.shows.filter(s => s.name.trim().toLowerCase() === groupKey);
+        siblings.forEach(s => {
+          s.votes = s.votes || {};
+          s.votes[state.currentVoter] = newValue;
+        });
         renderCards();
-        await updateShow(id, { votes: show.votes });
+        await Promise.all(siblings.map(s => updateShow(s.id, { votes: s.votes })));
       });
     });
 
