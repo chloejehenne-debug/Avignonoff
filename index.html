@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -813,16 +814,13 @@
          <div class="card-summary hidden" id="summary-${s.id}">${escapeHtml(s.summary)}</div>`
       : "";
 
-    const reserveHtml = s.link
-      ? `<a class="reserve-link" href="${escapeHtml(s.link)}" target="_blank" rel="noopener">Réserver ↗</a>`
-      : `<span class="reserve-missing" data-edit-id="${s.id}">+ ajouter un lien</span>`;
-
-    const availabilityUrl = s.link && s.link.includes("festivaloffavignon.com/spectacles/")
+    const bookingUrl = s.link && s.link.includes("festivaloffavignon.com/spectacles/") && !s.link.includes("/representations/")
       ? s.link.replace("festivaloffavignon.com/spectacles/", "festivaloffavignon.com/spectacles/representations/")
-      : null;
-    const availabilityHtml = availabilityUrl
-      ? `<a class="availability-link" href="${escapeHtml(availabilityUrl)}" target="_blank" rel="noopener">📅 Voir les places</a>`
-      : "";
+      : s.link;
+
+    const reserveHtml = bookingUrl
+      ? `<a class="reserve-link" href="${escapeHtml(bookingUrl)}" target="_blank" rel="noopener">Réserver ↗</a>`
+      : `<span class="reserve-missing" data-edit-id="${s.id}">+ ajouter un lien</span>`;
 
     return `
     <article class="card" data-id="${s.id}">
@@ -849,7 +847,6 @@
         ${addressLinkHtml(s)}
         ${photoHtml}
         ${summaryHtml}
-        ${availabilityHtml}
         <div class="card-bottom">
           <button class="vote-counter ${iVoted?'voted':''}" data-id="${s.id}" title="${escapeHtml(voteTitle)}">
             <span class="heart">♥</span><span>${count}</span>
