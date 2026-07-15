@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -190,6 +189,14 @@
     text-decoration:none; width:fit-content; margin-top:2px;
   }
   .availability-link:hover{ text-decoration:underline; }
+
+  .soldout-wrap{ position:relative; display:inline-block; width:fit-content; }
+  .soldout-toggle{
+    font-family:'IBM Plex Mono'; font-size:11px; font-weight:700; letter-spacing:.03em; border-radius:6px;
+    padding:4px 9px; cursor:pointer; border:1px solid var(--line-strong); background:#fff; color:var(--ink-soft);
+  }
+  .soldout-toggle.soldout{ background:var(--stamp); border-color:var(--stamp); color:#fff; }
+  .soldout-wrap .dropdown{ top:30px; min-width:200px; }
   .photo-thumb{
     width:100%; max-height:130px; object-fit:cover; border-radius:8px; border:1px solid var(--line); cursor:zoom-in;
   }
@@ -822,6 +829,17 @@
       ? `<a class="reserve-link" href="${escapeHtml(bookingUrl)}" target="_blank" rel="noopener">Réserver ↗</a>`
       : `<span class="reserve-missing" data-edit-id="${s.id}">+ ajouter un lien</span>`;
 
+    const soldOutMenuHtml = s.sold_out
+      ? `<button data-soldout-action="reopen-day" data-id="${s.id}">Réouvrir ce jour</button>
+         <button data-soldout-action="reopen-all" data-id="${s.id}">Réouvrir tous les jours</button>`
+      : `<button data-soldout-action="soldout-day" data-id="${s.id}">Complet aujourd'hui seulement</button>
+         <button data-soldout-action="soldout-all" data-id="${s.id}">Complet tous les jours</button>`;
+    const soldOutHtml = `
+      <div class="soldout-wrap">
+        <button class="soldout-toggle ${s.sold_out?'soldout':''}" data-id="${s.id}">${s.sold_out ? "COMPLET" : "🎟️ Marquer complet"}</button>
+        <div class="dropdown" data-soldout-menu-for="${s.id}">${soldOutMenuHtml}</div>
+      </div>`;
+
     return `
     <article class="card" data-id="${s.id}">
       <div class="stub">
@@ -845,6 +863,7 @@
         </div>
         <div class="card-theatre">${escapeHtml(s.theatre)}</div>
         ${addressLinkHtml(s)}
+        ${soldOutHtml}
         ${photoHtml}
         ${summaryHtml}
         <div class="card-bottom">
@@ -889,7 +908,7 @@
       });
     });
     document.addEventListener("click", (e)=>{
-      if(!e.target.closest(".card-menu")){
+      if(!e.target.closest(".card-menu") && !e.target.closest(".soldout-wrap")){
         document.querySelectorAll(".dropdown.open").forEach(d=>d.classList.remove("open"));
       }
     });
@@ -906,6 +925,39 @@
         const isOpen = !panel.classList.contains("hidden");
         panel.classList.toggle("hidden", isOpen);
         btn.classList.toggle("open", !isOpen);
+      });
+    });
+
+    wrap.querySelectorAll(".soldout-toggle").forEach(btn=>{
+      btn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        document.querySelectorAll(".dropdown.open").forEach(d=>d.classList.remove("open"));
+        const dd = wrap.querySelector(`[data-soldout-menu-for="${id}"]`);
+        if(dd) dd.classList.toggle("open");
+      });
+    });
+
+    wrap.querySelectorAll("[data-soldout-action]").forEach(btn=>{
+      btn.addEventListener("click", async (e)=>{
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const action = btn.dataset.soldoutAction;
+        document.querySelectorAll(".dropdown.open").forEach(d=>d.classList.remove("open"));
+        const show = state.shows.find(s=>s.id===id);
+        if(!show) return;
+        const newVal = action.startsWith("soldout");
+        if(action.endsWith("all")){
+          const key = showKey(show.name);
+          const siblings = state.shows.filter(s => showKey(s.name) === key);
+          siblings.forEach(s => { s.sold_out = newVal; });
+          renderCards();
+          await Promise.all(siblings.map(s => updateShow(s.id, { sold_out: newVal })));
+        } else {
+          show.sold_out = newVal;
+          renderCards();
+          await updateShow(id, { sold_out: newVal });
+        }
       });
     });
 
